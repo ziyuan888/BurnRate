@@ -80,7 +80,7 @@ Single-page React app shared between two Tauri windows. `App.tsx` detects which 
 3. Provider modules normalize API responses into `NormalizedSnapshot`, converted to `StoredSnapshot` and written to SQLite.
 4. `DashboardState` is built by reading latest snapshot + 7/30-day rollups from SQLite.
 5. Emitted as `dashboard://updated` event; frontend Zustand store calls `applyDashboard()`.
-6. API keys are stored in the **SQLite** `api_keys` table (provider → api_key). Keys are never stored in the OS keyring. The `mask_secret()` helper shows `****last4` in settings UI.
+6. API keys are stored in the **SQLite** `api_keys` table (provider → api_key). Keys are never stored in the OS keyring, and the current implementation is plain-text persistence rather than encrypted storage. The `mask_secret()` helper shows `****last4` in settings UI.
 
 ### Tauri window layout
 
@@ -89,7 +89,7 @@ Single-page React app shared between two Tauri windows. `App.tsx` detects which 
 
 ### SQLite schema
 
-Four tables: `app_settings` (key/value), `provider_settings` (per-provider config with `enabled` toggle), `snapshots` (time-series with index on `provider, observed_at_unix_ms DESC`), `api_keys` (provider → encrypted api_key).
+Four tables: `app_settings` (key/value), `provider_settings` (per-provider config with `enabled` toggle), `snapshots` (time-series with index on `provider, observed_at_unix_ms DESC`), `api_keys` (provider → plain-text api_key persisted in the local SQLite file).
 
 ### Dashboard toggle
 
