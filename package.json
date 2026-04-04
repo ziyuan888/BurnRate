@@ -2,6 +2,28 @@
   "name": "burn-rate",
   "private": true,
   "version": "0.1.0",
+  "description": "macOS menubar monitor for Zhipu, MiniMax, and Kimi quota burn rate",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/ziyuan888/BurnRate#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ziyuan888/BurnRate.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ziyuan888/BurnRate/issues"
+  },
+  "keywords": [
+    "tauri",
+    "rust",
+    "react",
+    "macos",
+    "menubar",
+    "tray",
+    "sqlite",
+    "zhipu",
+    "minimax",
+    "kimi"
+  ],
   "type": "module",
   "scripts": {
     "dev": "vite",
