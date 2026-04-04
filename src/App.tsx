@@ -150,11 +150,11 @@ function ProviderCard({ provider }: { provider: ProviderSnapshotView }) {
           <span>{provider.resetAtLabel}</span>
         </div>
       ) : null}
+      {provider.message ? <p className="provider-message">{provider.message}</p> : null}
       {provider.sevenDaySummary ? <p className="summary-line">{provider.sevenDaySummary}</p> : null}
       {provider.thirtyDaySummary ? (
         <p className="summary-line">{provider.thirtyDaySummary}</p>
       ) : null}
-      {provider.message ? <p className="provider-message">{provider.message}</p> : null}
       <p className="provider-timestamp">
         更新于 {new Date(provider.fetchedAt).toLocaleString("zh-CN")}
         {provider.isStale ? " · 数据较旧" : ""}
@@ -252,6 +252,7 @@ function SettingsSurface({
           <h2>接入说明</h2>
           <p className="inline-note">
             先填入真实 API Key，再点击各套餐的“保存”。
+            Kimi 如果要显示 Coding 用量，请粘贴控制台里的 Bearer Token。
             保存后回到概览页点“立即刷新”，就会开始真实联调。
           </p>
         </section>
@@ -295,7 +296,7 @@ function ProviderSettingsCard({
 
       <div className="provider-settings-fields">
         <label className="field field-wide">
-          <span>API Key</span>
+          <span>{provider.provider === "kimi" ? "API Key / 控制台 Token" : "API Key"}</span>
           <input
             value={apiKey}
             type="password"

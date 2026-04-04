@@ -1,9 +1,11 @@
 use tauri_app_lib::providers::{
     kimi::parse_balance_response,
+    kimi::parse_coding_usage_response,
     minimax::parse_quota_response as parse_minimax_quota_response,
     zhipu::parse_quota_response as parse_zhipu_quota_response,
 };
 use tauri_app_lib::storage::rollup::{compute_rollup, SnapshotMetric};
+use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
 #[test]
 fn parses_zhipu_quota_response() {
@@ -131,6 +133,48 @@ fn parses_kimi_reset_time_when_endpoint_exposes_it() {
     let parsed = parse_balance_response(&payload).expect("kimi payload should parse");
 
     assert_eq!(parsed.reset_at_unix_ms, Some(1712219880000_i64));
+}
+
+#[test]
+fn parses_kimi_coding_usage_response() {
+    let payload = serde_json::json!({
+        "usages": [
+            {
+                "scope": "FEATURE_CODING",
+                "detail": {
+                    "limit": "100",
+                    "remaining": "100",
+                    "resetTime": "2026-04-11T12:02:42.536858Z"
+                },
+                "limits": [
+                    {
+                        "window": {
+                            "duration": 300,
+                            "timeUnit": "TIME_UNIT_MINUTE"
+                        },
+                        "detail": {
+                            "limit": "100",
+                            "remaining": "100",
+                            "resetTime": "2026-04-04T17:02:42.536858Z"
+                        }
+                    }
+                ]
+            }
+        ]
+    });
+
+    let parsed = parse_coding_usage_response(&payload).expect("kimi coding payload should parse");
+    let window_reset = OffsetDateTime::parse("2026-04-04T17:02:42.536858Z", &Rfc3339)
+        .expect("time should parse")
+        .unix_timestamp_nanos()
+        / 1_000_000;
+
+    assert_eq!(parsed.provider.as_str(), "kimi");
+    assert_eq!(parsed.headline_value.as_deref(), Some("0%"));
+    assert_eq!(parsed.status.as_str(), "healthy");
+    assert_eq!(parsed.numeric_value, Some(0.0));
+    assert_eq!(parsed.reset_at_unix_ms, Some(window_reset as i64));
+    assert!(parsed.note.as_deref().is_some_and(|text| text.contains("本周额度 0%")));
 }
 
 #[test]

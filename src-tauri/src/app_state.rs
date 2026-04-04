@@ -113,7 +113,7 @@ impl AppState {
                     masked_api_key,
                     supports_model_hint: matches!(record.provider, ProviderKind::Minimax),
                     secret_placeholder: if matches!(record.provider, ProviderKind::Kimi) {
-                        "输入 Kimi API Key".to_string()
+                        "输入 Kimi API Key，或控制台 Bearer Token".to_string()
                     } else {
                         "输入套餐 API Key".to_string()
                     },
@@ -218,10 +218,19 @@ impl AppState {
         let recent_reset_history =
             db::load_recent_reset_timestamps(&self.db_path, record.provider, 8)?;
 
-        let seven_day_summary =
-            format_rollup(record.provider, &compute_rollup(&seven_day_metrics), "7 天");
-        let thirty_day_summary =
-            format_rollup(record.provider, &compute_rollup(&thirty_day_metrics), "30 天");
+        let latest_message = latest.as_ref().and_then(|snapshot| snapshot.message.as_deref());
+        let seven_day_summary = format_rollup(
+            record.provider,
+            latest_message,
+            &compute_rollup(&seven_day_metrics),
+            "7 天",
+        );
+        let thirty_day_summary = format_rollup(
+            record.provider,
+            latest_message,
+            &compute_rollup(&thirty_day_metrics),
+            "30 天",
+        );
 
         if self.load_api_key(record.provider).is_err() {
             return Ok(ProviderSnapshotView {
@@ -253,7 +262,7 @@ impl AppState {
                 provider_label: record.provider.display_name().to_string(),
                 is_enabled: record.enabled,
                 status,
-                headline_title: default_headline_title(record.provider),
+                headline_title: resolve_headline_title(record.provider, snapshot.message.as_deref()),
                 headline_value: snapshot.headline_value.unwrap_or_else(|| "--".to_string()),
                 reset_at_label: resolve_reset_at_unix_ms(
                     record.provider,
@@ -351,13 +360,33 @@ fn default_headline_title(provider: ProviderKind) -> String {
     }
 }
 
+fn resolve_headline_title(provider: ProviderKind, message: Option<&str>) -> String {
+    if matches!(provider, ProviderKind::Kimi)
+        && message.is_some_and(|value| value.contains("本周额度"))
+    {
+        return "5 小时窗口".to_string();
+    }
+
+    default_headline_title(provider)
+}
+
 fn format_rollup(
     provider: ProviderKind,
+    message: Option<&str>,
     rollup: &crate::storage::rollup::RollupSummary,
     range_label: &str,
 ) -> Option<String> {
     match provider {
         ProviderKind::Kimi => {
+            if message.is_some_and(|value| value.contains("本周额度")) {
+                return Some(format!(
+                    "{range_label} 最新 {}% / 峰值 {}% / 均值 {}%",
+                    rollup.latest_percent?,
+                    rollup.peak_percent?,
+                    rollup.average_percent?
+                ));
+            }
+
             let latest = rollup.latest_value?;
             let average = rollup.average_value?;
             Some(format!(
@@ -492,8 +521,12 @@ fn mask_secret(secret: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{format_reset_label_with_offset, normalize_unix_timestamp_ms, resolve_reset_at_unix_ms};
+    use super::{
+        format_reset_label_with_offset, format_rollup, normalize_unix_timestamp_ms,
+        resolve_headline_title, resolve_reset_at_unix_ms,
+    };
     use crate::models::ProviderKind;
+    use crate::storage::rollup::RollupSummary;
     use time::{UtcOffset, macros::datetime};
 
     #[test]
@@ -558,5 +591,33 @@ mod tests {
             derived,
             Some(datetime!(2026-04-05 01:00:00 +8).unix_timestamp() * 1000)
         );
+    }
+
+    #[test]
+    fn uses_window_title_for_kimi_coding_usage() {
+        let title = resolve_headline_title(ProviderKind::Kimi, Some("本周额度 81% · 04-11 20:00 重置"));
+
+        assert_eq!(title, "5 小时窗口");
+    }
+
+    #[test]
+    fn formats_kimi_coding_rollup_as_percentages() {
+        let rollup = RollupSummary {
+            latest_percent: Some(72),
+            peak_percent: Some(83),
+            average_percent: Some(51),
+            latest_value: Some(0.72),
+            peak_value: Some(0.83),
+            average_value: Some(0.51),
+        };
+
+        let summary = format_rollup(
+            ProviderKind::Kimi,
+            Some("本周额度 81% · 04-11 20:00 重置"),
+            &rollup,
+            "7 天",
+        );
+
+        assert_eq!(summary.as_deref(), Some("7 天 最新 72% / 峰值 83% / 均值 51%"));
     }
 }

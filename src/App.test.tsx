@@ -90,7 +90,7 @@ vi.mock("./store/useBurnRateStore", () => ({
           modelHint: "",
           hasApiKey: false,
           supportsModelHint: false,
-          secretPlaceholder: "输入 Kimi API Key",
+          secretPlaceholder: "输入 Kimi API Key，或控制台 Bearer Token",
         },
       ],
     },
@@ -129,7 +129,8 @@ describe("App settings access", () => {
     expect(
       screen.getByRole("heading", { level: 1, name: "连接套餐与刷新策略" }),
     ).toBeInTheDocument();
-    expect(screen.getAllByLabelText("API Key")).toHaveLength(3);
+    expect(screen.getAllByLabelText("API Key")).toHaveLength(2);
+    expect(screen.getByLabelText("API Key / 控制台 Token")).toBeInTheDocument();
   });
 
   it("shows the next reset time on the provider card", () => {
@@ -154,5 +155,31 @@ describe("App settings access", () => {
 
     expect(screen.getByText("下次重置")).toBeInTheDocument();
     expect(screen.getByText("今天 15:30")).toBeInTheDocument();
+  });
+
+  it("shows Kimi coding usage in the same card structure", () => {
+    storeState.dashboard.providers = [
+      {
+        provider: "kimi",
+        providerLabel: "Kimi",
+        isEnabled: true,
+        status: "warning",
+        headlineTitle: "5 小时窗口",
+        headlineValue: "72%",
+        resetAtLabel: "今天 19:00",
+        fetchedAt: "2026-04-03T14:00:00.000Z",
+        isStale: false,
+        message: "本周额度 81% · 04-11 20:00 重置",
+        sevenDaySummary: "7 天 最新 72% / 峰值 83% / 均值 51%",
+        thirtyDaySummary: null,
+      },
+    ];
+
+    render(<App />);
+
+    expect(screen.getByText("5 小时窗口")).toBeInTheDocument();
+    expect(screen.getByText("72%")).toBeInTheDocument();
+    expect(screen.getByText("今天 19:00")).toBeInTheDocument();
+    expect(screen.getByText("本周额度 81% · 04-11 20:00 重置")).toBeInTheDocument();
   });
 });
