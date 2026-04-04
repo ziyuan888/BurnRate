@@ -3,6 +3,7 @@ use reqwest::Client;
 use serde_json::Value;
 
 use crate::models::{NormalizedSnapshot, ProviderKind, SnapshotStatus};
+use crate::providers::parse_unix_timestamp_ms;
 
 const DEFAULT_QUOTA_URL: &str = "https://api.z.ai/api/monitor/usage/quota/limit";
 
@@ -65,7 +66,7 @@ pub fn parse_quota_response(payload: &Value) -> Result<NormalizedSnapshot> {
         status: status_from_ratio(numeric_value),
         headline_value: Some(format_percent(numeric_value)),
         numeric_value: Some(numeric_value),
-        reset_at_unix_ms: item.get("nextResetTime").and_then(Value::as_i64),
+        reset_at_unix_ms: parse_unix_timestamp_ms(item.get("nextResetTime")),
         note: Some("5 小时窗口".to_string()),
     })
 }

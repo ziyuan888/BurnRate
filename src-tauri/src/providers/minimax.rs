@@ -3,6 +3,7 @@ use reqwest::Client;
 use serde_json::Value;
 
 use crate::models::{NormalizedSnapshot, ProviderKind, SnapshotStatus};
+use crate::providers::parse_unix_timestamp_ms;
 
 const DEFAULT_QUOTA_URL: &str =
     "https://api.minimaxi.com/v1/api/openplatform/coding_plan/remains";
@@ -100,7 +101,7 @@ pub fn parse_quota_response(payload: &Value, model_hint: Option<&str>) -> Result
         status: status_from_ratio(used_ratio),
         headline_value: Some(format_percent(used_ratio)),
         numeric_value: Some(used_ratio),
-        reset_at_unix_ms: entry.get("end_time").and_then(Value::as_i64),
+        reset_at_unix_ms: parse_unix_timestamp_ms(entry.get("end_time")),
         note: entry
             .get("model_name")
             .and_then(Value::as_str)

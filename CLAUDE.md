@@ -95,6 +95,10 @@ Four tables: `app_settings` (key/value), `provider_settings` (per-provider confi
 
 Each `ProviderSnapshotView` includes `is_enabled`. The main dashboard `ProviderCard` renders an iOS-style CSS switch (`.switch` + `.switch-knob`) on the right side. Clicking calls `toggle_provider` → `db::toggle_provider_enabled()` which flips the `enabled` column. Toggling returns an updated `DashboardState` without a full API refresh. The tray tooltip is also updated after each toggle.
 
+### Reset time display
+
+Each provider card can render `reset_at_label` as `下次重置`. The backend normalizes reset timestamps from either numeric or string JSON fields, accepts both second and millisecond precision, and formats them in local time as `今天 HH:mm`, `明天 HH:mm`, or `MM-DD HH:mm`.
+
 ### Tray tooltip
 
 `AppState::build_tooltip_text()` reads provider settings + latest snapshots from SQLite and formats a compact summary string. Set initially via `TrayIconBuilder::tooltip()` and updated after every background refresh and manual refresh via `update_tray_tooltip()` → `tray.set_tooltip()`. macOS requires hovering ~1-2s over the tray icon for the tooltip to appear.

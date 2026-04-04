@@ -146,7 +146,7 @@ function ProviderCard({ provider }: { provider: ProviderSnapshotView }) {
 
       {provider.resetAtLabel ? (
         <div className="meta-row">
-          <span>重置</span>
+          <span>下次重置</span>
           <span>{provider.resetAtLabel}</span>
         </div>
       ) : null}

@@ -5,7 +5,7 @@ use anyhow::{Context, Result};
 use reqwest::Client;
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_autostart::ManagerExt;
-use time::{format_description::well_known::Rfc3339, OffsetDateTime, UtcOffset};
+use time::{Duration as TimeDuration, format_description::well_known::Rfc3339, OffsetDateTime, UtcOffset};
 
 use crate::models::{
     DashboardState, NormalizedSnapshot, ProviderKind, ProviderSettingsRecord, ProviderSettingsView,
@@ -255,7 +255,7 @@ impl AppState {
                 headline_value: snapshot.headline_value.unwrap_or_else(|| "--".to_string()),
                 reset_at_label: snapshot
                     .reset_at_unix_ms
-                    .and_then(|value| format_clock(value).ok()),
+                    .and_then(|value| format_reset_label(value, now_ms).ok()),
                 fetched_at: format_iso(snapshot.observed_at_unix_ms)?,
                 is_stale,
                 message: snapshot.message,
@@ -368,16 +368,45 @@ fn format_rollup(
 }
 
 fn format_iso(unix_ms: i64) -> Result<String> {
-    let seconds = unix_ms / 1000;
+    let seconds = normalize_unix_timestamp_ms(unix_ms) / 1000;
     let datetime = OffsetDateTime::from_unix_timestamp(seconds)?;
     Ok(datetime.format(&Rfc3339)?)
 }
 
-fn format_clock(unix_ms: i64) -> Result<String> {
-    let seconds = unix_ms / 1000;
+fn format_reset_label(reset_at_unix_ms: i64, now_unix_ms: i64) -> Result<String> {
     let offset = UtcOffset::current_local_offset().unwrap_or(UtcOffset::UTC);
-    let datetime = OffsetDateTime::from_unix_timestamp(seconds)?.to_offset(offset);
-    Ok(datetime.format(&time::macros::format_description!("[hour]:[minute]"))?)
+    format_reset_label_with_offset(reset_at_unix_ms, now_unix_ms, offset)
+}
+
+fn format_reset_label_with_offset(
+    reset_at_unix_ms: i64,
+    now_unix_ms: i64,
+    offset: UtcOffset,
+) -> Result<String> {
+    let reset_at = OffsetDateTime::from_unix_timestamp(normalize_unix_timestamp_ms(reset_at_unix_ms) / 1000)?
+        .to_offset(offset);
+    let now = OffsetDateTime::from_unix_timestamp(normalize_unix_timestamp_ms(now_unix_ms) / 1000)?
+        .to_offset(offset);
+    let time_text = reset_at.format(&time::macros::format_description!("[hour]:[minute]"))?;
+
+    if reset_at.date() == now.date() {
+        return Ok(format!("今天 {time_text}"));
+    }
+
+    if reset_at.date() == (now + TimeDuration::days(1)).date() {
+        return Ok(format!("明天 {time_text}"));
+    }
+
+    let date_text = reset_at.format(&time::macros::format_description!("[month]-[day]"))?;
+    Ok(format!("{date_text} {time_text}"))
+}
+
+fn normalize_unix_timestamp_ms(value: i64) -> i64 {
+    if value.abs() < 1_000_000_000_000 {
+        value * 1000
+    } else {
+        value
+    }
 }
 
 fn now_unix_ms() -> i64 {
@@ -406,4 +435,35 @@ fn mask_secret(secret: &str) -> String {
     }
     let visible = &secret[secret.len() - 4..];
     format!("{}{}", "*".repeat(secret.len() - 4), visible)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{format_reset_label_with_offset, normalize_unix_timestamp_ms};
+    use time::{UtcOffset, macros::datetime};
+
+    #[test]
+    fn formats_same_day_reset_label() {
+        let offset = UtcOffset::from_hms(8, 0, 0).expect("offset should build");
+        let now = datetime!(2026-04-04 10:00:00 +8).unix_timestamp() * 1000;
+        let reset_at = datetime!(2026-04-04 15:30:00 +8).unix_timestamp() * 1000;
+
+        let label =
+            format_reset_label_with_offset(reset_at, now, offset).expect("label should format");
+
+        assert_eq!(label, "今天 15:30");
+    }
+
+    #[test]
+    fn normalizes_second_precision_reset_timestamp() {
+        let offset = UtcOffset::from_hms(8, 0, 0).expect("offset should build");
+        let now = datetime!(2026-04-04 23:30:00 +8).unix_timestamp() * 1000;
+        let reset_at_seconds = datetime!(2026-04-05 00:15:00 +8).unix_timestamp();
+
+        let label = format_reset_label_with_offset(reset_at_seconds, now, offset)
+            .expect("label should format");
+
+        assert_eq!(normalize_unix_timestamp_ms(reset_at_seconds) % 1000, 0);
+        assert_eq!(label, "明天 00:15");
+    }
 }

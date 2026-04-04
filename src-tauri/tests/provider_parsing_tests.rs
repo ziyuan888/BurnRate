@@ -27,6 +27,7 @@ fn parses_zhipu_quota_response() {
     assert_eq!(parsed.provider.as_str(), "zhipu");
     assert_eq!(parsed.headline_value.as_deref(), Some("37%"));
     assert_eq!(parsed.status.as_str(), "healthy");
+    assert_eq!(parsed.reset_at_unix_ms, Some(1712219880000_i64));
 }
 
 #[test]
@@ -55,6 +56,50 @@ fn parses_minimax_quota_response() {
     assert_eq!(parsed.provider.as_str(), "minimax");
     assert_eq!(parsed.headline_value.as_deref(), Some("37%"));
     assert_eq!(parsed.status.as_str(), "healthy");
+    assert_eq!(parsed.reset_at_unix_ms, Some(1712219880000_i64));
+}
+
+#[test]
+fn parses_zhipu_reset_time_from_string() {
+    let payload = serde_json::json!({
+        "success": true,
+        "data": {
+            "limits": [
+                {
+                    "type": "TOKENS_LIMIT",
+                    "number": 5,
+                    "percentage": 37.0,
+                    "nextResetTime": "1712219880000"
+                }
+            ]
+        }
+    });
+
+    let parsed = parse_zhipu_quota_response(&payload).expect("zhipu payload should parse");
+
+    assert_eq!(parsed.reset_at_unix_ms, Some(1712219880000_i64));
+}
+
+#[test]
+fn parses_minimax_reset_time_from_string() {
+    let payload = serde_json::json!({
+        "base_resp": {
+            "status_code": 0
+        },
+        "model_remains": [
+            {
+                "model_name": "MiniMax-M2.5",
+                "current_interval_total_count": 800,
+                "current_interval_usage_count": 504,
+                "end_time": "1712219880000"
+            }
+        ]
+    });
+
+    let parsed = parse_minimax_quota_response(&payload, Some("MiniMax-M2.5"))
+        .expect("minimax payload should parse");
+
+    assert_eq!(parsed.reset_at_unix_ms, Some(1712219880000_i64));
 }
 
 #[test]

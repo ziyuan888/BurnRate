@@ -24,6 +24,26 @@ const storeMocks = vi.hoisted(() => ({
   updateLaunchAtLogin: vi.fn().mockResolvedValue(undefined),
 }));
 
+const storeState = vi.hoisted(() => ({
+  dashboard: {
+    providers: [] as Array<{
+      provider: "zhipu" | "minimax" | "kimi";
+      providerLabel: string;
+      isEnabled: boolean;
+      status: "healthy" | "warning" | "danger" | "needs_setup" | "error" | "stale";
+      headlineTitle: string;
+      headlineValue: string;
+      resetAtLabel: string | null;
+      fetchedAt: string;
+      isStale: boolean;
+      message: string | null;
+      sevenDaySummary: string | null;
+      thirtyDaySummary: string | null;
+    }>,
+    refreshedAt: "2026-04-03T14:00:00.000Z",
+  },
+}));
+
 vi.mock("@tauri-apps/api/event", () => ({
   listen: vi.fn().mockResolvedValue(() => undefined),
 }));
@@ -37,10 +57,7 @@ vi.mock("@tauri-apps/api/window", () => ({
 
 vi.mock("./store/useBurnRateStore", () => ({
   useBurnRateStore: () => ({
-    dashboard: {
-      providers: [],
-      refreshedAt: "2026-04-03T14:00:00.000Z",
-    },
+    dashboard: storeState.dashboard,
     settings: {
       refreshIntervalSecs: 60,
       launchAtLogin: false,
@@ -99,6 +116,7 @@ describe("App settings access", () => {
     tauriWindowMocks.getByLabel.mockResolvedValue(tauriWindowMocks.settingsWindow);
     tauriWindowMocks.settingsWindow.show.mockReset();
     tauriWindowMocks.settingsWindow.setFocus.mockReset();
+    storeState.dashboard.providers = [];
     storeMocks.loadDashboard.mockClear();
     storeMocks.loadSettings.mockClear();
   });
@@ -112,5 +130,29 @@ describe("App settings access", () => {
       screen.getByRole("heading", { level: 1, name: "连接套餐与刷新策略" }),
     ).toBeInTheDocument();
     expect(screen.getAllByLabelText("API Key")).toHaveLength(3);
+  });
+
+  it("shows the next reset time on the provider card", () => {
+    storeState.dashboard.providers = [
+      {
+        provider: "zhipu",
+        providerLabel: "智谱清言",
+        isEnabled: true,
+        status: "healthy",
+        headlineTitle: "5 小时窗口",
+        headlineValue: "37%",
+        resetAtLabel: "今天 15:30",
+        fetchedAt: "2026-04-03T14:00:00.000Z",
+        isStale: false,
+        message: null,
+        sevenDaySummary: null,
+        thirtyDaySummary: null,
+      },
+    ];
+
+    render(<App />);
+
+    expect(screen.getByText("下次重置")).toBeInTheDocument();
+    expect(screen.getByText("今天 15:30")).toBeInTheDocument();
   });
 });
