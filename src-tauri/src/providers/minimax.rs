@@ -95,13 +95,24 @@ pub fn parse_quota_response(payload: &Value, model_hint: Option<&str>) -> Result
     } else {
         ((total - remaining) / total).clamp(0.0, 1.0)
     };
+    let base_resp = payload.get("base_resp");
 
     Ok(NormalizedSnapshot {
         provider: ProviderKind::Minimax,
         status: status_from_ratio(used_ratio),
         headline_value: Some(format_percent(used_ratio)),
         numeric_value: Some(used_ratio),
-        reset_at_unix_ms: parse_unix_timestamp_ms(entry.get("end_time")),
+        reset_at_unix_ms: [
+            entry.get("end_time"),
+            entry.get("current_interval_end_time"),
+            entry.get("nextResetTime"),
+            entry.get("next_reset_time"),
+            entry.get("resetAt"),
+            entry.get("reset_at"),
+            base_resp.and_then(|value| value.get("end_time")),
+        ]
+        .into_iter()
+        .find_map(parse_unix_timestamp_ms),
         note: entry
             .get("model_name")
             .and_then(Value::as_str)

@@ -215,6 +215,8 @@ impl AppState {
             record.provider,
             now_ms - days_to_ms(30),
         )?;
+        let recent_reset_history =
+            db::load_recent_reset_timestamps(&self.db_path, record.provider, 8)?;
 
         let seven_day_summary =
             format_rollup(record.provider, &compute_rollup(&seven_day_metrics), "7 天");
@@ -253,8 +255,12 @@ impl AppState {
                 status,
                 headline_title: default_headline_title(record.provider),
                 headline_value: snapshot.headline_value.unwrap_or_else(|| "--".to_string()),
-                reset_at_label: snapshot
-                    .reset_at_unix_ms
+                reset_at_label: resolve_reset_at_unix_ms(
+                    record.provider,
+                    snapshot.reset_at_unix_ms,
+                    &recent_reset_history,
+                    now_ms,
+                )
                     .and_then(|value| format_reset_label(value, now_ms).ok()),
                 fetched_at: format_iso(snapshot.observed_at_unix_ms)?,
                 is_stale,
@@ -378,6 +384,53 @@ fn format_reset_label(reset_at_unix_ms: i64, now_unix_ms: i64) -> Result<String>
     format_reset_label_with_offset(reset_at_unix_ms, now_unix_ms, offset)
 }
 
+fn resolve_reset_at_unix_ms(
+    provider: ProviderKind,
+    latest_reset_at_unix_ms: Option<i64>,
+    reset_history: &[i64],
+    now_unix_ms: i64,
+) -> Option<i64> {
+    let mut unique_resets = Vec::new();
+
+    for value in latest_reset_at_unix_ms.into_iter().chain(reset_history.iter().copied()) {
+        let normalized = normalize_unix_timestamp_ms(value);
+        if !unique_resets.contains(&normalized) {
+            unique_resets.push(normalized);
+        }
+    }
+
+    unique_resets.sort_unstable_by(|left, right| right.cmp(left));
+
+    let anchor = unique_resets.first().copied()?;
+    if anchor > now_unix_ms {
+        return Some(anchor);
+    }
+
+    let cycle_ms = infer_cycle_duration_ms(provider, &unique_resets)?;
+    let mut next_reset = anchor;
+    while next_reset <= now_unix_ms {
+        next_reset += cycle_ms;
+    }
+
+    Some(next_reset)
+}
+
+fn infer_cycle_duration_ms(provider: ProviderKind, reset_history: &[i64]) -> Option<i64> {
+    for window in reset_history.windows(2) {
+        let newer = window[0];
+        let older = window[1];
+        let interval = newer - older;
+        if interval > 60_000 && interval <= days_to_ms(30) {
+            return Some(interval);
+        }
+    }
+
+    match provider {
+        ProviderKind::Zhipu => Some(5 * 60 * 60 * 1000),
+        ProviderKind::Minimax | ProviderKind::Kimi => None,
+    }
+}
+
 fn format_reset_label_with_offset(
     reset_at_unix_ms: i64,
     now_unix_ms: i64,
@@ -439,7 +492,8 @@ fn mask_secret(secret: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{format_reset_label_with_offset, normalize_unix_timestamp_ms};
+    use super::{format_reset_label_with_offset, normalize_unix_timestamp_ms, resolve_reset_at_unix_ms};
+    use crate::models::ProviderKind;
     use time::{UtcOffset, macros::datetime};
 
     #[test]
@@ -465,5 +519,44 @@ mod tests {
 
         assert_eq!(normalize_unix_timestamp_ms(reset_at_seconds) % 1000, 0);
         assert_eq!(label, "明天 00:15");
+    }
+
+    #[test]
+    fn rolls_zhipu_reset_forward_when_latest_snapshot_is_missing_reset() {
+        let now = datetime!(2026-04-04 19:43:00 +8).unix_timestamp() * 1000;
+        let last_known_reset = datetime!(2026-04-04 18:05:26 +8).unix_timestamp() * 1000;
+
+        let derived = resolve_reset_at_unix_ms(
+            ProviderKind::Zhipu,
+            None,
+            &[last_known_reset],
+            now,
+        );
+
+        assert_eq!(
+            derived,
+            Some(datetime!(2026-04-04 23:05:26 +8).unix_timestamp() * 1000)
+        );
+    }
+
+    #[test]
+    fn infers_minimax_reset_interval_from_history_when_latest_snapshot_is_missing_reset() {
+        let now = datetime!(2026-04-04 20:10:00 +8).unix_timestamp() * 1000;
+        let history = [
+            datetime!(2026-04-04 15:00:00 +8).unix_timestamp() * 1000,
+            datetime!(2026-04-04 20:00:00 +8).unix_timestamp() * 1000,
+        ];
+
+        let derived = resolve_reset_at_unix_ms(
+            ProviderKind::Minimax,
+            None,
+            &history,
+            now,
+        );
+
+        assert_eq!(
+            derived,
+            Some(datetime!(2026-04-05 01:00:00 +8).unix_timestamp() * 1000)
+        );
     }
 }

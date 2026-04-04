@@ -60,13 +60,25 @@ pub fn parse_quota_response(payload: &Value) -> Result<NormalizedSnapshot> {
         .and_then(Value::as_f64)
         .ok_or_else(|| anyhow!("智谱套餐接口缺少 percentage"))?;
     let numeric_value = if percent > 1.0 { percent / 100.0 } else { percent };
+    let data = payload.get("data");
 
     Ok(NormalizedSnapshot {
         provider: ProviderKind::Zhipu,
         status: status_from_ratio(numeric_value),
         headline_value: Some(format_percent(numeric_value)),
         numeric_value: Some(numeric_value),
-        reset_at_unix_ms: parse_unix_timestamp_ms(item.get("nextResetTime")),
+        reset_at_unix_ms: [
+            item.get("nextResetTime"),
+            item.get("next_reset_time"),
+            item.get("resetAt"),
+            item.get("reset_at"),
+            data.and_then(|value| value.get("nextResetTime")),
+            data.and_then(|value| value.get("next_reset_time")),
+            payload.get("nextResetTime"),
+            payload.get("next_reset_time"),
+        ]
+        .into_iter()
+        .find_map(parse_unix_timestamp_ms),
         note: Some("5 小时窗口".to_string()),
     })
 }

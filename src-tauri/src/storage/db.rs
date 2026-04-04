@@ -231,6 +231,31 @@ pub fn load_snapshot_metrics_since(
     Ok(result)
 }
 
+pub fn load_recent_reset_timestamps(
+    path: &Path,
+    provider: ProviderKind,
+    limit: usize,
+) -> Result<Vec<i64>> {
+    let connection = Connection::open(path)?;
+    let mut statement = connection.prepare(
+        "SELECT reset_at_unix_ms
+         FROM snapshots
+         WHERE provider = ?1
+           AND reset_at_unix_ms IS NOT NULL
+         ORDER BY observed_at_unix_ms DESC
+         LIMIT ?2",
+    )?;
+
+    let rows = statement.query_map(params![provider.as_str(), limit as i64], |row| row.get(0))?;
+
+    let mut result = Vec::new();
+    for row in rows {
+        result.push(row?);
+    }
+
+    Ok(result)
+}
+
 fn normalize_optional_text(value: String) -> Option<String> {
     let trimmed = value.trim();
     if trimmed.is_empty() {

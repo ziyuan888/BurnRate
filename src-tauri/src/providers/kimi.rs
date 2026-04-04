@@ -3,6 +3,7 @@ use reqwest::Client;
 use serde_json::Value;
 
 use crate::models::{NormalizedSnapshot, ProviderKind, SnapshotStatus};
+use crate::providers::parse_unix_timestamp_ms;
 
 const DEFAULT_BALANCE_URL: &str = "https://api.moonshot.cn/v1/users/me/balance";
 
@@ -59,9 +60,27 @@ pub fn parse_balance_response(payload: &Value) -> Result<NormalizedSnapshot> {
         status: status_from_balance(balance),
         headline_value: Some(format_currency(balance, currency)),
         numeric_value: Some(balance),
-        reset_at_unix_ms: None,
+        reset_at_unix_ms: extract_reset_at(payload),
         note: Some("账户余额".to_string()),
     })
+}
+
+fn extract_reset_at(payload: &Value) -> Option<i64> {
+    let data = payload.get("data");
+    [
+        data.and_then(|value| value.get("nextResetTime")),
+        data.and_then(|value| value.get("next_reset_time")),
+        data.and_then(|value| value.get("resetAt")),
+        data.and_then(|value| value.get("reset_at")),
+        data.and_then(|value| value.get("end_time")),
+        payload.get("nextResetTime"),
+        payload.get("next_reset_time"),
+        payload.get("resetAt"),
+        payload.get("reset_at"),
+        payload.get("end_time"),
+    ]
+    .into_iter()
+    .find_map(parse_unix_timestamp_ms)
 }
 
 fn status_from_balance(balance: f64) -> SnapshotStatus {

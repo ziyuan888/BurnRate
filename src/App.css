@@ -34,8 +34,10 @@ button {
 }
 
 .shell-popover {
+  height: 100vh;
+  overflow-y: auto;
   min-height: 100vh;
-  padding: 16px;
+  padding: 16px 12px 16px 16px;
   background:
     radial-gradient(ellipse at 30% 0%, rgba(56, 120, 200, 0.35), transparent 60%),
     radial-gradient(ellipse at 80% 100%, rgba(100, 60, 180, 0.2), transparent 50%),

@@ -119,6 +119,21 @@ fn parses_kimi_balance_response() {
 }
 
 #[test]
+fn parses_kimi_reset_time_when_endpoint_exposes_it() {
+    let payload = serde_json::json!({
+        "data": {
+            "available_balance": "28.88",
+            "currency": "CNY",
+            "nextResetTime": "1712219880000"
+        }
+    });
+
+    let parsed = parse_balance_response(&payload).expect("kimi payload should parse");
+
+    assert_eq!(parsed.reset_at_unix_ms, Some(1712219880000_i64));
+}
+
+#[test]
 fn computes_rollup_from_recent_snapshots() {
     let snapshots = vec![
         SnapshotMetric {
