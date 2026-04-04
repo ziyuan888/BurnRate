@@ -1,7 +1,7 @@
 {
   "name": "burn-rate",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "macOS menubar monitor for Zhipu, MiniMax, and Kimi quota burn rate",
   "license": "Apache-2.0",
   "homepage": "https://github.com/ziyuan888/BurnRate#readme",
