@@ -293,6 +293,48 @@ pub fn delete_api_key(path: &Path, provider: ProviderKind) -> Result<()> {
     Ok(())
 }
 
+#[derive(Debug, Clone)]
+pub struct UsageMetrics {
+    pub tokens: i64,
+    pub messages: i64,
+    pub tool_calls: i64,
+    pub tool_breakdown: Vec<(String, i64)>,
+}
+
+/// Load usage metrics from snapshots
+/// Returns real quota data; tool calls are not available from standard APIs
+pub fn load_latest_metrics(path: &Path, provider: ProviderKind) -> Result<UsageMetrics> {
+    // Get the latest snapshot for token/usage estimation
+    let latest = latest_snapshot(path, provider)?;
+    
+    // Calculate approximate tokens based on usage ratio
+    // This is an estimation since APIs don't return exact token counts
+    let (estimated_tokens, estimated_messages) = if let Some(snapshot) = latest {
+        let ratio = snapshot.numeric_value.unwrap_or(0.0);
+        // Estimate: assume different providers have different base quotas
+        let base_quota = match provider {
+            ProviderKind::Zhipu => 5_000_000i64, // 5M tokens per 5-hour window estimate
+            ProviderKind::Minimax => 1_000_000i64, // 1M per window
+            ProviderKind::Kimi => 50_000_000i64, // 50M weekly for coding
+        };
+        let used_tokens = (base_quota as f64 * ratio) as i64;
+        // Estimate messages: roughly 500 tokens per message
+        let messages = (used_tokens / 500).max(0);
+        (used_tokens, messages)
+    } else {
+        (0, 0)
+    };
+
+    // Tool calls are not available from current APIs - return empty
+    // These would need to be populated from provider-specific MCP/Coding APIs
+    Ok(UsageMetrics {
+        tokens: estimated_tokens,
+        messages: estimated_messages,
+        tool_calls: 0, // Not available from standard APIs
+        tool_breakdown: vec![],
+    })
+}
+
 pub fn toggle_provider_enabled(path: &Path, provider: ProviderKind) -> Result<bool> {
     let connection = Connection::open(path)?;
     let current: i64 = connection

@@ -9,7 +9,7 @@ use time::{Duration as TimeDuration, format_description::well_known::Rfc3339, Of
 
 use crate::models::{
     DashboardState, NormalizedSnapshot, ProviderKind, ProviderSettingsRecord, ProviderSettingsView,
-    ProviderSnapshotView, SettingsState, SnapshotStatus, StoredSnapshot,
+    ProviderSnapshotView, SettingsState, SnapshotStatus, StoredSnapshot, UsageStats, UsageMetrics,
 };
 use crate::providers::{kimi, minimax, zhipu};
 use crate::storage::db;
@@ -87,9 +87,59 @@ impl AppState {
             providers.push(view);
         }
 
+        // Build usage stats from provider data
+        let usage_stats = self.build_usage_stats(&providers)?;
+
         Ok(DashboardState {
             providers,
             refreshed_at: format_iso(now_ms)?,
+            usage_stats,
+        })
+    }
+
+    fn build_usage_stats(&self, providers: &[ProviderSnapshotView]) -> Result<UsageStats> {
+        // Aggregate token usage from all providers
+        let mut total_tokens: f64 = 0.0;
+        let mut total_messages: i64 = 0;
+        let mut total_tool_calls: i64 = 0;
+        let mut tool_calls: Vec<crate::models::ToolCall> = Vec::new();
+
+        // For each provider, try to get detailed usage from snapshots
+        for provider in providers {
+            // Get additional metrics from database if available
+            if let Ok(metrics) = db::load_latest_metrics(&self.db_path, provider.provider) {
+                total_tokens += metrics.tokens as f64;
+                total_messages += metrics.messages;
+                total_tool_calls += metrics.tool_calls;
+                
+                // Add tool-specific calls
+                for (name, count) in metrics.tool_breakdown {
+                    if let Some(existing) = tool_calls.iter_mut().find(|t: &&mut crate::models::ToolCall| t.name == name) {
+                        existing.count += count;
+                    } else {
+                        tool_calls.push(crate::models::ToolCall { name, count });
+                    }
+                }
+            }
+        }
+
+        // Sort tool calls by count descending
+        tool_calls.sort_by(|a, b| b.count.cmp(&a.count));
+
+        // Format total tokens (convert to M if > 1M)
+        let tokens_str = if total_tokens >= 1_000_000.0 {
+            format!("{:.1}M", total_tokens / 1_000_000.0)
+        } else if total_tokens >= 1000.0 {
+            format!("{:.1}K", total_tokens / 1000.0)
+        } else {
+            format!("{}", total_tokens as i64)
+        };
+
+        Ok(UsageStats {
+            total_tokens: tokens_str,
+            total_messages,
+            total_tool_calls,
+            tool_calls,
         })
     }
 

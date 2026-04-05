@@ -25,9 +25,78 @@ input {
 button {
   border: none;
   cursor: pointer;
+  background: transparent;
 }
 
-/* ── Shell backgrounds ── */
+/* ── Animations ── */
+
+@keyframes cardSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes progressFill {
+  from { width: 0%; }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* ── iOS-style Switch ── */
+
+.switch {
+  position: relative;
+  width: 50px;
+  height: 28px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 0;
+  cursor: pointer;
+  transition: background 220ms ease, border-color 220ms ease;
+  flex-shrink: 0;
+}
+
+.switch-on {
+  background: rgba(52, 199, 89, 0.6);
+  border-color: rgba(52, 199, 89, 0.7);
+}
+
+.switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: white;
+  transition: transform 220ms ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.switch-on .switch-knob {
+  transform: translateX(22px);
+}
+
+/* Spinning animation for refresh */
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+/* ── Shell backgrounds with glassmorphism ── */
 
 .shell {
   box-sizing: border-box;
@@ -37,7 +106,8 @@ button {
   height: 100vh;
   overflow-y: auto;
   min-height: 100vh;
-  padding: 16px 12px 16px 16px;
+  padding: 0;
+  /* Glassmorphism background */
   background:
     radial-gradient(ellipse at 30% 0%, rgba(56, 120, 200, 0.35), transparent 60%),
     radial-gradient(ellipse at 80% 100%, rgba(100, 60, 180, 0.2), transparent 50%),
@@ -59,7 +129,12 @@ button {
 
 /* ── Layout ── */
 
-.popover-layout,
+.popover-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
 .settings-layout {
   display: flex;
   flex-direction: column;
@@ -72,116 +147,370 @@ button {
   padding-right: 4px;
 }
 
-/* ── Glass card ── */
+/* ── Header ── */
 
-.glass-card,
-.settings-panel {
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.08);
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(24px) saturate(1.4);
-  -webkit-backdrop-filter: blur(24px) saturate(1.4);
-}
-
-.hero-card {
-  padding: 20px;
-}
-
-/* ── Flex rows ── */
-
-.hero-row,
-.provider-header,
-.provider-settings-header,
-.toggle-row,
-.metric-row,
-.meta-row {
+.popover-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.popover-header-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #f0f4fa;
+}
+
+.popover-header-actions {
+  display: flex;
+  align-items: center;
   gap: 12px;
 }
 
-.hero-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 18px;
+.popover-header-time {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.5);
+  font-family: "SF Mono", "Menlo", monospace;
 }
 
-/* ── Typography ── */
+.icon-button {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.6);
+  transition: all 150ms ease;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
 
-.eyebrow {
-  margin: 0 0 6px;
+.icon-button:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.icon-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Cards with glassmorphism ── */
+
+.card {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  margin: 0 16px 12px;
+  overflow: hidden;
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  /* Animation */
+  animation: cardSlideIn 0.5s ease-out forwards;
+  animation-delay: var(--delay, 0s);
+  opacity: 0;
+  /* Hover transition */
+  transition: transform 200ms ease, box-shadow 200ms ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #f0f4fa;
+}
+
+.card-badge {
   font-size: 11px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.card-content {
+  padding: 16px;
+}
+
+/* ── Progress Items ── */
+
+.progress-item {
+  margin-bottom: 18px;
+}
+
+.progress-item:last-child {
+  margin-bottom: 0;
+}
+
+.progress-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.progress-label {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.progress-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #4ade80;
+  font-family: "SF Mono", "Menlo", monospace;
+}
+
+.progress-value.warning {
+  color: #fbbf24;
+}
+
+.progress-value.danger {
+  color: #f87171;
+}
+
+.progress-bar-bg {
+  height: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4ade80 0%, #22c55e 100%);
+  border-radius: 4px;
+  box-shadow: 0 0 10px rgba(74, 222, 128, 0.3);
+  animation: progressFill 0.8s ease-out forwards;
+}
+
+.progress-bar-fill.warning {
+  background: linear-gradient(90deg, #fbbf24 0%, #f59e0b 100%);
+  box-shadow: 0 0 10px rgba(251, 191, 36, 0.3);
+}
+
+.progress-bar-fill.danger {
+  background: linear-gradient(90deg, #f87171 0%, #ef4444 100%);
+  box-shadow: 0 0 10px rgba(248, 113, 113, 0.3);
+}
+
+.progress-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.5);
 }
 
-h1,
-h2,
-h3 {
-  margin: 0;
+.progress-meta-icon {
+  width: 14px;
+  height: 14px;
+  opacity: 0.6;
 }
 
-h1 {
-  font-size: 26px;
-  line-height: 1.1;
+/* ── Metric Cards ── */
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 0 16px 12px;
+}
+
+.metric-card {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 16px;
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  animation: cardSlideIn 0.5s ease-out forwards;
+  animation-delay: var(--delay, 0s);
+  opacity: 0;
+  transition: transform 200ms ease, box-shadow 200ms ease;
+}
+
+.metric-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.metric-card-header {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.metric-card-value {
+  font-size: 22px;
   font-weight: 700;
+  color: #f0f4fa;
+  font-family: "SF Mono", "Menlo", monospace;
 }
 
-h2 {
-  font-size: 19px;
-  margin-bottom: 18px;
-  font-weight: 600;
+.metric-card-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
 }
 
-h3 {
-  font-size: 17px;
-  font-weight: 600;
+.metric-card-sub-icon {
+  width: 14px;
+  height: 14px;
+  opacity: 0.5;
 }
 
-.subtle,
-.provider-subtitle,
-.provider-settings-header p,
-.inline-note {
-  margin: 0;
-  color: rgba(255, 255, 255, 0.55);
+/* ── Tool List ── */
+
+.tool-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tool-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   font-size: 13px;
-  line-height: 1.5;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+}
+
+.tool-name {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.tool-count {
+  color: rgba(255, 255, 255, 0.9);
+  font-family: "SF Mono", "Menlo", monospace;
+  font-weight: 500;
+}
+
+/* ── Provider Cards ── */
+
+.provider-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0 16px;
+}
+
+.provider-card {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 16px;
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  animation: cardSlideIn 0.5s ease-out forwards;
+  animation-delay: var(--delay, 0s);
+  opacity: 0;
+  transition: transform 200ms ease, box-shadow 200ms ease;
+}
+
+.provider-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.provider-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.provider-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #f0f4fa;
+}
+
+.provider-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #4ade80;
+  font-family: "SF Mono", "Menlo", monospace;
+}
+
+.provider-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
 }
 
 /* ── Status pill ── */
 
 .status-pill {
   border-radius: 999px;
-  padding: 8px 14px;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
   font-family: "SF Mono", "Menlo", "Roboto Mono", monospace;
 }
 
 .status-pill-healthy {
-  background: rgba(0, 200, 83, 0.18);
-  color: #00c853;
+  background: rgba(74, 222, 128, 0.2);
+  color: #4ade80;
+  border: 1px solid rgba(74, 222, 128, 0.3);
 }
 
 .status-pill-warning {
-  background: rgba(255, 188, 31, 0.2);
-  color: #ffbc1f;
+  background: rgba(251, 191, 36, 0.2);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.3);
 }
 
 .status-pill-danger {
-  background: rgba(255, 77, 97, 0.2);
-  color: #ff4d61;
+  background: rgba(248, 113, 113, 0.2);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.3);
 }
 
 .status-pill-muted {
   background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
 /* ── Buttons ── */
@@ -190,10 +519,10 @@ h3 {
 .ghost-button,
 .toggle-button {
   border-radius: 12px;
-  padding: 10px 14px;
+  padding: 12px 16px;
   font-size: 13px;
   font-weight: 600;
-  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+  transition: all 160ms ease;
 }
 
 .primary-button:hover,
@@ -203,179 +532,49 @@ h3 {
 }
 
 .primary-button {
-  background: linear-gradient(135deg, rgba(56, 120, 255, 0.7), rgba(100, 168, 255, 0.6));
+  background: linear-gradient(135deg, rgba(56, 120, 255, 0.8), rgba(100, 168, 255, 0.7));
   color: white;
-  box-shadow: 0 6px 20px rgba(56, 120, 255, 0.25);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 20px rgba(56, 120, 255, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.primary-button:hover {
+  background: linear-gradient(135deg, rgba(56, 120, 255, 0.9), rgba(100, 168, 255, 0.8));
 }
 
 .ghost-button {
   background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.ghost-button:hover {
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .toggle-button-on {
-  background: rgba(0, 200, 83, 0.18);
-  color: #00c853;
-  border: 1px solid rgba(0, 200, 83, 0.25);
+  background: rgba(74, 222, 128, 0.2);
+  color: #4ade80;
+  border: 1px solid rgba(74, 222, 128, 0.3);
 }
 
 .toggle-button-off {
   background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
-/* ── Switch (iOS-style toggle) ── */
+/* ── Actions Bar ── */
 
-.switch {
-  position: relative;
-  width: 44px;
-  height: 26px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  padding: 0;
-  flex-shrink: 0;
-  transition: background 220ms ease, border-color 220ms ease;
-}
-
-.switch-on {
-  background: rgba(0, 200, 83, 0.35);
-  border-color: rgba(0, 200, 83, 0.4);
-}
-
-.switch-knob {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 20px;
-  height: 20px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.6);
-  transition: transform 220ms ease, background 220ms ease;
-  display: block;
-}
-
-.switch-on .switch-knob {
-  transform: translateX(18px);
-  background: #fff;
-  box-shadow: 0 0 8px rgba(0, 200, 83, 0.4);
-}
-
-/* ── Provider stack ── */
-
-.provider-stack {
+.actions-bar {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.provider-card {
+  gap: 10px;
   padding: 16px;
-}
-
-.provider-title {
-  margin: 0;
-  font-weight: 700;
-  font-size: 17px;
-  color: #f0f4fa;
-}
-
-.provider-subtitle {
-  margin-top: 3px;
-  font-size: 12px;
-}
-
-/* ── Traffic dot ── */
-
-.traffic-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.08);
-}
-
-.traffic-dot-healthy {
-  background: #00c853;
-  box-shadow: 0 0 8px rgba(0, 200, 83, 0.4), 0 0 0 4px rgba(0, 200, 83, 0.12);
-}
-
-.traffic-dot-warning {
-  background: #ffbc1f;
-  box-shadow: 0 0 8px rgba(255, 188, 31, 0.4), 0 0 0 4px rgba(255, 188, 31, 0.12);
-}
-
-.traffic-dot-danger,
-.traffic-dot-error {
-  background: #ff4d61;
-  box-shadow: 0 0 8px rgba(255, 77, 97, 0.4), 0 0 0 4px rgba(255, 77, 97, 0.12);
-}
-
-.traffic-dot-stale,
-.traffic-dot-needs_setup {
-  background: rgba(255, 255, 255, 0.3);
-}
-
-/* ── Metrics ── */
-
-.metric-row {
-  margin-top: 14px;
-  padding: 12px 0 8px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.metric-label,
-.meta-row,
-.summary-line,
-.provider-message,
-.provider-timestamp {
-  font-size: 13px;
-}
-
-.metric-label {
-  color: rgba(255, 255, 255, 0.45);
-}
-
-.metric-value {
-  font-size: 32px;
-  font-weight: 800;
-  line-height: 1;
-  font-family: "SF Mono", "Menlo", "Roboto Mono", monospace;
-  color: #f0f4fa;
-}
-
-.meta-row {
-  margin-top: 6px;
-  color: rgba(255, 255, 255, 0.45);
-}
-
-.summary-line,
-.provider-message,
-.provider-timestamp,
-.inline-error {
-  margin: 8px 0 0;
-}
-
-.summary-line {
-  color: rgba(255, 255, 255, 0.6);
-  font-family: "SF Mono", "Menlo", monospace;
-  font-size: 12px;
-}
-
-.provider-message {
-  color: rgba(255, 200, 100, 0.7);
-}
-
-.provider-timestamp {
-  color: rgba(255, 255, 255, 0.3);
-  font-size: 12px;
-}
-
-.inline-error {
-  color: #ff6b7a;
-  font-size: 13px;
+  margin-top: auto;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
 /* ── Settings layout ── */
@@ -385,16 +584,31 @@ h3 {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
 }
 
 .settings-grid {
   display: grid;
   grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
   gap: 18px;
+  padding: 0 16px;
 }
 
 .settings-panel {
-  padding: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 20px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(24px) saturate(1.4);
+  -webkit-backdrop-filter: blur(24px) saturate(1.4);
 }
 
 .settings-panel-wide {
@@ -409,17 +623,25 @@ h3 {
 
 .inline-settings-note {
   padding: 18px 22px;
+  margin: 0 16px;
 }
 
 /* ── Provider settings card ── */
 
 .provider-settings-card {
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 18px;
+  border-radius: 16px;
   padding: 18px;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(0, 0, 0, 0.2);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+}
+
+.provider-settings-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 12px;
 }
 
 .provider-settings-fields {
@@ -445,26 +667,26 @@ h3 {
 }
 
 .key-status-dot {
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
   border-radius: 999px;
 }
 
 .key-status-configured {
-  color: #00c853;
+  color: #4ade80;
 }
 
 .key-status-configured .key-status-dot {
-  background: #00c853;
-  box-shadow: 0 0 6px rgba(0, 200, 83, 0.5);
+  background: #4ade80;
+  box-shadow: 0 0 8px rgba(74, 222, 128, 0.5);
 }
 
 .key-status-empty {
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.4);
 }
 
 .key-status-empty .key-status-dot {
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .field {
@@ -472,24 +694,25 @@ h3 {
   flex-direction: column;
   gap: 6px;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.6);
 }
 
 .field input {
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 12px;
-  padding: 10px 14px;
-  background: rgba(255, 255, 255, 0.06);
+  padding: 12px 14px;
+  background: rgba(0, 0, 0, 0.2);
   color: #f0f4fa;
   outline: none;
   transition: border-color 160ms ease, background 160ms ease;
   text-overflow: ellipsis;
   overflow: hidden;
   white-space: nowrap;
+  font-size: 13px;
 }
 
 .field input::placeholder {
-  color: rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.3);
   text-overflow: ellipsis;
   overflow: hidden;
   white-space: nowrap;
@@ -497,7 +720,74 @@ h3 {
 
 .field input:focus {
   border-color: rgba(100, 168, 255, 0.5);
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* ── Typography ── */
+
+.eyebrow {
+  margin: 0 0 6px;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+h1, h2, h3 {
+  margin: 0;
+}
+
+h1 {
+  font-size: 24px;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+h2 {
+  font-size: 17px;
+  margin-bottom: 16px;
+  font-weight: 600;
+}
+
+h3 {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.subtle,
+.inline-note {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.inline-error {
+  color: #f87171;
+  font-size: 13px;
+  margin: 8px 16px;
+  padding: 12px 16px;
+  background: rgba(248, 113, 113, 0.1);
+  border-radius: 12px;
+  border: 1px solid rgba(248, 113, 113, 0.2);
+}
+
+/* ── Flex utilities ── */
+
+.flex-1 {
+  flex: 1;
+}
+
+/* ── Toggle row for settings ── */
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 12px;
 }
 
 /* ── Responsive ── */
@@ -509,6 +799,10 @@ h3 {
 
   .settings-grid,
   .provider-settings-fields {
+    grid-template-columns: 1fr;
+  }
+  
+  .metric-grid {
     grid-template-columns: 1fr;
   }
 }

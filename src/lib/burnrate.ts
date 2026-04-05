@@ -24,9 +24,22 @@ export type ProviderSnapshotView = {
   thirtyDaySummary: string | null;
 };
 
+export type ToolCall = {
+  name: string;
+  count: number;
+};
+
+export type UsageStats = {
+  totalTokens: string;
+  totalMessages: number;
+  totalToolCalls: number;
+  toolCalls: ToolCall[];
+};
+
 export type DashboardState = {
   providers: ProviderSnapshotView[];
   refreshedAt: string;
+  usageStats: UsageStats;
 };
 
 export type ProviderSettingsView = {

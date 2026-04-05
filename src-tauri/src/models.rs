@@ -123,9 +123,34 @@ pub struct ProviderSnapshotView {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ToolCall {
+    pub name: String,
+    pub count: i64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UsageStats {
+    pub total_tokens: String,
+    pub total_messages: i64,
+    pub total_tool_calls: i64,
+    pub tool_calls: Vec<ToolCall>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DashboardState {
     pub providers: Vec<ProviderSnapshotView>,
     pub refreshed_at: String,
+    pub usage_stats: UsageStats,
+}
+
+#[derive(Debug, Clone)]
+pub struct UsageMetrics {
+    pub tokens: i64,
+    pub messages: i64,
+    pub tool_calls: i64,
+    pub tool_breakdown: Vec<(String, i64)>,
 }
 
 #[derive(Debug, Clone)]
