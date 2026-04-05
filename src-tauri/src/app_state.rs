@@ -9,7 +9,7 @@ use time::{Duration as TimeDuration, format_description::well_known::Rfc3339, Of
 
 use crate::models::{
     DashboardState, NormalizedSnapshot, ProviderKind, ProviderSettingsRecord, ProviderSettingsView,
-    ProviderSnapshotView, SettingsState, SnapshotStatus, StoredSnapshot, UsageStats, UsageMetrics,
+    ProviderSnapshotView, SettingsState, SnapshotStatus, StoredSnapshot, UsageStats,
 };
 use crate::providers::{kimi, minimax, zhipu};
 use crate::storage::db;
@@ -64,26 +64,36 @@ impl AppState {
         let refresh_jobs = configs.into_iter().map(|config| {
             let state = self.clone();
             async move {
-                let snapshot = state.refresh_provider(config.clone()).await;
-                (config.provider, snapshot)
+                let normalized = state.fetch_provider_normalized(config.clone()).await;
+                (config.provider, normalized)
             }
         });
 
-        for (_, snapshot_result) in futures::future::join_all(refresh_jobs).await {
-            if let Ok(snapshot) = snapshot_result {
-                db::insert_snapshot(&self.db_path, &snapshot)?;
+        let mut normalized_snapshots = std::collections::HashMap::new();
+        for (provider, normalized_result) in futures::future::join_all(refresh_jobs).await {
+            if let Ok(snapshot) = normalized_result {
+                db::insert_snapshot(&self.db_path, &to_stored_snapshot(snapshot.clone()))?;
+                normalized_snapshots.insert(provider, snapshot);
             }
         }
 
-        self.build_dashboard_state()
+        self.build_dashboard_state_with_normalized(normalized_snapshots)
     }
 
     pub fn build_dashboard_state(&self) -> Result<DashboardState> {
+        self.build_dashboard_state_with_normalized(std::collections::HashMap::new())
+    }
+
+    fn build_dashboard_state_with_normalized(
+        &self,
+        normalized_snapshots: std::collections::HashMap<ProviderKind, NormalizedSnapshot>,
+    ) -> Result<DashboardState> {
         let mut providers = Vec::new();
         let now_ms = now_unix_ms();
 
         for record in db::load_provider_settings(&self.db_path)? {
-            let view = self.build_provider_view(record, now_ms)?;
+            let normalized = normalized_snapshots.get(&record.provider);
+            let view = self.build_provider_view(record, now_ms, normalized)?;
             providers.push(view);
         }
 
@@ -214,16 +224,18 @@ impl AppState {
         db::load_refresh_interval_secs(&self.db_path)
     }
 
-    async fn refresh_provider(&self, config: ProviderSettingsRecord) -> Result<StoredSnapshot> {
+    async fn fetch_provider_normalized(&self, config: ProviderSettingsRecord) -> Result<NormalizedSnapshot> {
         if !config.enabled {
-            return Ok(StoredSnapshot {
+            return Ok(NormalizedSnapshot {
                 provider: config.provider,
                 status: SnapshotStatus::NeedsSetup,
                 headline_value: Some("已暂停".to_string()),
                 numeric_value: None,
                 reset_at_unix_ms: None,
-                message: Some("该套餐已在设置页暂停自动刷新".to_string()),
-                observed_at_unix_ms: now_unix_ms(),
+                note: Some("该套餐已在设置页暂停自动刷新".to_string()),
+                secondary_value: None,
+                secondary_numeric: None,
+                secondary_reset_at_unix_ms: None,
             });
         }
 
@@ -231,9 +243,9 @@ impl AppState {
             .load_api_key(config.provider)
             .map_err(|_| anyhow::anyhow!("未配置 API Key"))?;
 
-        let normalized = match config.provider {
+        match config.provider {
             ProviderKind::Zhipu => {
-                zhipu::fetch_snapshot(&self.client, config.endpoint_url.as_deref(), &api_key).await?
+                zhipu::fetch_snapshot(&self.client, config.endpoint_url.as_deref(), &api_key).await
             }
             ProviderKind::Minimax => {
                 minimax::fetch_snapshot(
@@ -242,20 +254,19 @@ impl AppState {
                     &api_key,
                     config.model_hint.as_deref(),
                 )
-                .await?
+                .await
             }
             ProviderKind::Kimi => {
-                kimi::fetch_snapshot(&self.client, config.endpoint_url.as_deref(), &api_key).await?
+                kimi::fetch_snapshot(&self.client, config.endpoint_url.as_deref(), &api_key).await
             }
-        };
-
-        Ok(to_stored_snapshot(normalized))
+        }
     }
 
     fn build_provider_view(
         &self,
         record: ProviderSettingsRecord,
         now_ms: i64,
+        normalized: Option<&NormalizedSnapshot>,
     ) -> Result<ProviderSnapshotView> {
         let latest = db::latest_snapshot(&self.db_path, record.provider)?;
         let seven_day_metrics =
@@ -296,6 +307,10 @@ impl AppState {
                 message: Some("尚未配置 API Key".to_string()),
                 seven_day_summary,
                 thirty_day_summary,
+                secondary_title: resolve_secondary_title(record.provider),
+                secondary_value: Some("0%".to_string()),
+                secondary_percent: Some(0.0),
+                secondary_reset_at_label: None,
             });
         }
 
@@ -306,6 +321,25 @@ impl AppState {
             } else {
                 snapshot.status
             };
+
+            // Use normalized snapshot for secondary data if available (fresh from API)
+            let (secondary_title, secondary_value, secondary_percent, secondary_reset) = normalized
+                .map(|n| {
+                    (
+                        resolve_secondary_title(record.provider),
+                        n.secondary_value.clone(),
+                        n.secondary_numeric,
+                        n.secondary_reset_at_unix_ms,
+                    )
+                })
+                .unwrap_or_else(|| {
+                    (
+                        resolve_secondary_title(record.provider),
+                        Some("0%".to_string()),
+                        Some(0.0),
+                        None,
+                    )
+                });
 
             return Ok(ProviderSnapshotView {
                 provider: record.provider,
@@ -326,6 +360,11 @@ impl AppState {
                 message: snapshot.message,
                 seven_day_summary,
                 thirty_day_summary,
+                secondary_title,
+                secondary_value,
+                secondary_percent,
+                secondary_reset_at_label: secondary_reset
+                    .and_then(|value| format_reset_label(value, now_ms).ok()),
             });
         }
 
@@ -342,6 +381,10 @@ impl AppState {
             message: Some("尚无历史数据，请手动刷新".to_string()),
             seven_day_summary,
             thirty_day_summary,
+            secondary_title: resolve_secondary_title(record.provider),
+            secondary_value: Some("0%".to_string()),
+            secondary_percent: Some(0.0),
+            secondary_reset_at_label: None,
         })
     }
 
@@ -418,6 +461,14 @@ fn resolve_headline_title(provider: ProviderKind, message: Option<&str>) -> Stri
     }
 
     default_headline_title(provider)
+}
+
+fn resolve_secondary_title(provider: ProviderKind) -> Option<String> {
+    match provider {
+        ProviderKind::Kimi => Some("7 天额度".to_string()),
+        ProviderKind::Zhipu => Some("7 天额度".to_string()),
+        ProviderKind::Minimax => Some("总配额".to_string()),
+    }
 }
 
 fn format_rollup(

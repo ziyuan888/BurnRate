@@ -102,6 +102,10 @@ pub struct NormalizedSnapshot {
     pub numeric_value: Option<f64>,
     pub reset_at_unix_ms: Option<i64>,
     pub note: Option<String>,
+    // Secondary quota for dual-quota providers (e.g., Kimi 7-day weekly quota)
+    pub secondary_value: Option<String>,
+    pub secondary_numeric: Option<f64>,
+    pub secondary_reset_at_unix_ms: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -119,6 +123,11 @@ pub struct ProviderSnapshotView {
     pub message: Option<String>,
     pub seven_day_summary: Option<String>,
     pub thirty_day_summary: Option<String>,
+    // Secondary progress bar for dual-quota providers (e.g., Kimi: 5-hour + 7-day)
+    pub secondary_title: Option<String>,
+    pub secondary_value: Option<String>,
+    pub secondary_percent: Option<f64>,
+    pub secondary_reset_at_label: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]

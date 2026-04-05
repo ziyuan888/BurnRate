@@ -81,6 +81,7 @@ pub fn parse_quota_response(payload: &Value, model_hint: Option<&str>) -> Result
         .or_else(|| entries.first())
         .ok_or_else(|| anyhow!("MiniMax 套餐接口没有可用模型记录"))?;
 
+    // Primary: current interval usage
     let total = entry
         .get("current_interval_total_count")
         .and_then(Value::as_f64)
@@ -97,26 +98,49 @@ pub fn parse_quota_response(payload: &Value, model_hint: Option<&str>) -> Result
     };
     let base_resp = payload.get("base_resp");
 
+    let primary_reset_at = [
+        entry.get("end_time"),
+        entry.get("current_interval_end_time"),
+        entry.get("nextResetTime"),
+        entry.get("next_reset_time"),
+        entry.get("resetAt"),
+        entry.get("reset_at"),
+        base_resp.and_then(|value| value.get("end_time")),
+    ]
+    .into_iter()
+    .find_map(parse_unix_timestamp_ms);
+
+    // Secondary: try to find daily/quota limit from total_quota_remains or other fields
+    let secondary = entry
+        .get("total_quota_remains")
+        .and_then(Value::as_f64)
+        .map(|remains| {
+            let total_quota = entry
+                .get("total_quota")
+                .and_then(Value::as_f64)
+                .unwrap_or(0.0);
+            if total_quota > 0.0 {
+                let ratio = ((total_quota - remains) / total_quota).clamp(0.0, 1.0);
+                (Some(format_percent(ratio)), Some(ratio))
+            } else {
+                (Some("0%".to_string()), Some(0.0))
+            }
+        })
+        .unwrap_or((Some("0%".to_string()), Some(0.0)));
+
     Ok(NormalizedSnapshot {
         provider: ProviderKind::Minimax,
         status: status_from_ratio(used_ratio),
         headline_value: Some(format_percent(used_ratio)),
         numeric_value: Some(used_ratio),
-        reset_at_unix_ms: [
-            entry.get("end_time"),
-            entry.get("current_interval_end_time"),
-            entry.get("nextResetTime"),
-            entry.get("next_reset_time"),
-            entry.get("resetAt"),
-            entry.get("reset_at"),
-            base_resp.and_then(|value| value.get("end_time")),
-        ]
-        .into_iter()
-        .find_map(parse_unix_timestamp_ms),
+        reset_at_unix_ms: primary_reset_at,
         note: entry
             .get("model_name")
             .and_then(Value::as_str)
             .map(|value| format!("{} 当前窗口", value)),
+        secondary_value: secondary.0,
+        secondary_numeric: secondary.1,
+        secondary_reset_at_unix_ms: None,
     })
 }
 

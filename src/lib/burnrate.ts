@@ -22,6 +22,11 @@ export type ProviderSnapshotView = {
   message: string | null;
   sevenDaySummary: string | null;
   thirtyDaySummary: string | null;
+  // Secondary progress bar for dual-quota providers (e.g., Kimi: 5-hour + 7-day)
+  secondaryTitle: string | null;
+  secondaryValue: string | null;
+  secondaryPercent: number | null;
+  secondaryResetAtLabel: string | null;
 };
 
 export type ToolCall = {

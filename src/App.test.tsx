@@ -39,6 +39,10 @@ const storeState = vi.hoisted(() => ({
       message: string | null;
       sevenDaySummary: string | null;
       thirtyDaySummary: string | null;
+      secondaryTitle: string | null;
+      secondaryValue: string | null;
+      secondaryPercent: number | null;
+      secondaryResetAtLabel: string | null;
     }>,
     refreshedAt: "2026-04-03T14:00:00.000Z",
   },
@@ -148,16 +152,20 @@ describe("App settings access", () => {
         message: null,
         sevenDaySummary: null,
         thirtyDaySummary: null,
+        secondaryTitle: null,
+        secondaryValue: null,
+        secondaryPercent: null,
+        secondaryResetAtLabel: null,
       },
     ];
 
     render(<App />);
 
-    expect(screen.getByText("下次重置")).toBeInTheDocument();
-    expect(screen.getByText("今天 15:30")).toBeInTheDocument();
+    // Check for reset time display - "今天 15:30" is within "重置 今天 15:30"
+    expect(screen.getByText(/重置.*今天 15:30/)).toBeInTheDocument();
   });
 
-  it("shows Kimi coding usage in the same card structure", () => {
+  it("shows Kimi coding usage with dual progress bars", () => {
     storeState.dashboard.providers = [
       {
         provider: "kimi",
@@ -172,14 +180,25 @@ describe("App settings access", () => {
         message: "本周额度 81% · 04-11 20:00 重置",
         sevenDaySummary: "7 天 最新 72% / 峰值 83% / 均值 51%",
         thirtyDaySummary: null,
+        secondaryTitle: "7 天额度",
+        secondaryValue: "81%",
+        secondaryPercent: 0.81,
+        secondaryResetAtLabel: "04-11 20:00",
       },
     ];
 
     render(<App />);
 
-    expect(screen.getByText("5 小时窗口")).toBeInTheDocument();
-    expect(screen.getByText("72%")).toBeInTheDocument();
-    expect(screen.getByText("今天 19:00")).toBeInTheDocument();
-    expect(screen.getByText("本周额度 81% · 04-11 20:00 重置")).toBeInTheDocument();
+    // Primary progress bar (5-hour window) - check headline text exists
+    expect(screen.getByText(/5 小时窗口/)).toBeInTheDocument();
+    // There are two "72%" elements (card-badge and progress-value), get all and verify at least one exists
+    expect(screen.getAllByText("72%").length).toBeGreaterThanOrEqual(1);
+    // "今天 19:00" is rendered within "重置 今天 19:00" span
+    expect(screen.getByText(/重置.*今天 19:00/)).toBeInTheDocument();
+
+    // Secondary progress bar (7-day quota)
+    expect(screen.getByText("7 天额度")).toBeInTheDocument();
+    // There are two "81%" elements (card-badge and secondary-value), get all and verify at least one exists
+    expect(screen.getAllByText("81%").length).toBeGreaterThanOrEqual(1);
   });
 });

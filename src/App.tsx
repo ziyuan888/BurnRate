@@ -128,10 +128,13 @@ function PopoverSurface({ onOpenSettings }: { onOpenSettings: () => void }) {
   const providerData = useMemo(() => {
     return (dashboard?.providers ?? []).map((p) => ({
       ...p,
-      // Parse progress from headlineValue (e.g., "11%" or "37/100")
+      // Parse progress from headlineValue (e.g. "11%" or "37/100")
       progress: parseProgress(p.headlineValue),
       // Estimate remaining time from resetAtLabel
       remainingTime: p.resetAtLabel || "--",
+      // Parse secondary progress for dual-quota providers (check null/undefined, not falsy)
+      secondaryProgress: p.secondaryPercent != null ? { percent: Math.round(p.secondaryPercent * 100) } : null,
+      secondaryRemainingTime: p.secondaryResetAtLabel || null,
     }));
   }, [dashboard]);
 
@@ -181,41 +184,79 @@ function PopoverSurface({ onOpenSettings }: { onOpenSettings: () => void }) {
         </div>
       </header>
 
-      {/* Quota Section */}
-      <div className="card" style={{ '--delay': '0s' } as React.CSSProperties}>
-        <div className="card-header">
-          <span className="card-title">配额</span>
-          <span className="card-badge">LITE</span>
-        </div>
-        <div className="card-content">
-          {providerData.map((provider) => (
-            <div key={provider.provider} className="progress-item">
-              <div className="progress-header">
-                <span className="progress-label">
-                  {provider.providerLabel} {provider.headlineTitle && `(${provider.headlineTitle})`}
-                </span>
-                <span className={clsx("progress-value", provider.progress.percent > 80 && "text-yellow-400")}>
-                  {provider.headlineValue}
-                </span>
-              </div>
-              <div className="progress-bar-bg">
-                <div 
-                  className={clsx(
-                    "progress-bar-fill",
-                    provider.progress.percent > 80 && "warning",
-                    provider.progress.percent > 95 && "danger"
-                  )}
-                  style={{ width: `${Math.min(provider.progress.percent, 100)}%` }}
-                />
-              </div>
-              <div className="progress-meta">
-                <ClockIcon />
-                <span>重置 {provider.remainingTime}</span>
-              </div>
+      {/* Provider Cards - each provider has its own card */}
+      {providerData.map((provider, index) => (
+        <div 
+          key={provider.provider} 
+          className="card" 
+          style={{ '--delay': `${index * 0.1}s` } as React.CSSProperties}
+        >
+          <div className="card-header">
+            <span className="card-title">{provider.providerLabel}</span>
+            <span className={clsx(
+              "card-badge",
+              provider.status === 'healthy' && "badge-healthy",
+              provider.status === 'warning' && "badge-warning",
+              provider.status === 'danger' && "badge-danger"
+            )}>
+              {provider.headlineValue}
+            </span>
+          </div>
+          <div className="card-content">
+            {/* Primary progress bar */}
+            <div className="progress-header">
+              <span className="progress-label">{provider.headlineTitle || '当前用量'}</span>
+              <span className={clsx("progress-value", provider.progress.percent > 80 && "warning", provider.progress.percent > 95 && "danger")}>
+                {provider.headlineValue}
+              </span>
             </div>
-          ))}
+            <div className="progress-bar-bg">
+              <div 
+                className={clsx(
+                  "progress-bar-fill",
+                  provider.progress.percent > 80 && "warning",
+                  provider.progress.percent > 95 && "danger"
+                )}
+                style={{ width: `${Math.min(provider.progress.percent, 100)}%` }}
+              />
+            </div>
+            <div className="progress-meta">
+              <ClockIcon />
+              <span>重置 {provider.remainingTime}</span>
+            </div>
+
+            {/* Secondary progress bar */}
+            {provider.secondaryProgress && provider.secondaryTitle && (
+              <div className="secondary-progress">
+                <div className="progress-header secondary-header">
+                  <span className="progress-label secondary-label">
+                    {provider.secondaryTitle}
+                  </span>
+                  <span className={clsx("progress-value secondary-value", provider.secondaryProgress.percent > 80 && "warning", provider.secondaryProgress.percent > 95 && "danger")}>
+                    {provider.secondaryValue}
+                  </span>
+                </div>
+                <div className="progress-bar-bg secondary-bar-bg">
+                  <div 
+                    className={clsx(
+                      "progress-bar-fill secondary-bar-fill",
+                      provider.secondaryProgress.percent > 80 && "warning",
+                      provider.secondaryProgress.percent > 95 && "danger"
+                    )}
+                    style={{ width: `${Math.min(provider.secondaryProgress.percent, 100)}%` }}
+                  />
+                </div>
+                {provider.secondaryRemainingTime && (
+                  <div className="progress-meta secondary-meta">
+                    <ClockIcon />
+                    <span>重置 {provider.secondaryRemainingTime}</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      ))}
 
       {/* Model Usage */}
       <div className="metric-grid">

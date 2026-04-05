@@ -70,6 +70,9 @@ pub fn parse_balance_response(payload: &Value) -> Result<NormalizedSnapshot> {
         numeric_value: Some(balance),
         reset_at_unix_ms: extract_reset_at(payload),
         note: Some("账户余额".to_string()),
+        secondary_value: None,
+        secondary_numeric: None,
+        secondary_reset_at_unix_ms: None,
     })
 }
 
@@ -119,6 +122,9 @@ pub fn parse_coding_usage_response(payload: &Value) -> Result<NormalizedSnapshot
         numeric_value: Some(current_used_ratio),
         reset_at_unix_ms: current_reset,
         note: build_weekly_note(weekly_used_ratio, weekly_reset),
+        secondary_value: Some(format_percent(weekly_used_ratio)),
+        secondary_numeric: Some(weekly_used_ratio),
+        secondary_reset_at_unix_ms: weekly_reset,
     })
 }
 

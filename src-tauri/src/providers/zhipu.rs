@@ -49,6 +49,7 @@ pub fn parse_quota_response(payload: &Value) -> Result<NormalizedSnapshot> {
         .and_then(Value::as_array)
         .ok_or_else(|| anyhow!("智谱套餐接口缺少 limits"))?;
 
+    // Find 5-hour window (primary)
     let rolling_limit = limits.iter().find(|item| {
         item.get("type").and_then(Value::as_str) == Some("TOKENS_LIMIT")
             && item.get("number").and_then(Value::as_i64) == Some(5)
@@ -62,24 +63,58 @@ pub fn parse_quota_response(payload: &Value) -> Result<NormalizedSnapshot> {
     let numeric_value = if percent > 1.0 { percent / 100.0 } else { percent };
     let data = payload.get("data");
 
+    let primary_reset_at = [
+        item.get("nextResetTime"),
+        item.get("next_reset_time"),
+        item.get("resetAt"),
+        item.get("reset_at"),
+        data.and_then(|value| value.get("nextResetTime")),
+        data.and_then(|value| value.get("next_reset_time")),
+        payload.get("nextResetTime"),
+        payload.get("next_reset_time"),
+    ]
+    .into_iter()
+    .find_map(parse_unix_timestamp_ms);
+
+    // Try to find 7-day window (secondary) - look for daily or weekly limits
+    let daily_limit = limits.iter().find(|item| {
+        item.get("type").and_then(Value::as_str) == Some("TOKENS_LIMIT")
+            && item.get("number").and_then(Value::as_i64) == Some(1)
+    });
+
+    let (secondary_value, secondary_numeric, secondary_reset_at) = daily_limit
+        .map(|daily| {
+            let daily_percent = daily
+                .get("percentage")
+                .and_then(Value::as_f64)
+                .unwrap_or(0.0);
+            let daily_ratio = if daily_percent > 1.0 { daily_percent / 100.0 } else { daily_percent };
+            let daily_reset = [
+                daily.get("nextResetTime"),
+                daily.get("next_reset_time"),
+                daily.get("resetAt"),
+                daily.get("reset_at"),
+            ]
+            .into_iter()
+            .find_map(parse_unix_timestamp_ms);
+            (
+                Some(format_percent(daily_ratio)),
+                Some(daily_ratio),
+                daily_reset,
+            )
+        })
+        .unwrap_or((Some("0%".to_string()), Some(0.0), None));
+
     Ok(NormalizedSnapshot {
         provider: ProviderKind::Zhipu,
         status: status_from_ratio(numeric_value),
         headline_value: Some(format_percent(numeric_value)),
         numeric_value: Some(numeric_value),
-        reset_at_unix_ms: [
-            item.get("nextResetTime"),
-            item.get("next_reset_time"),
-            item.get("resetAt"),
-            item.get("reset_at"),
-            data.and_then(|value| value.get("nextResetTime")),
-            data.and_then(|value| value.get("next_reset_time")),
-            payload.get("nextResetTime"),
-            payload.get("next_reset_time"),
-        ]
-        .into_iter()
-        .find_map(parse_unix_timestamp_ms),
+        reset_at_unix_ms: primary_reset_at,
         note: Some("5 小时窗口".to_string()),
+        secondary_value,
+        secondary_numeric,
+        secondary_reset_at_unix_ms: secondary_reset_at,
     })
 }
 
