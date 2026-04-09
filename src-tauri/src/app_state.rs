@@ -236,6 +236,10 @@ impl AppState {
                 secondary_value: None,
                 secondary_numeric: None,
                 secondary_reset_at_unix_ms: None,
+                mcp_value: None,
+                mcp_numeric: None,
+                mcp_limit: None,
+                mcp_reset_at_unix_ms: None,
             });
         }
 
@@ -311,6 +315,11 @@ impl AppState {
                 secondary_value: Some("0%".to_string()),
                 secondary_percent: Some(0.0),
                 secondary_reset_at_label: None,
+                mcp_title: resolve_mcp_title(record.provider),
+                mcp_value: None,
+                mcp_percent: None,
+                mcp_limit: None,
+                mcp_reset_at_label: None,
             });
         }
 
@@ -341,6 +350,21 @@ impl AppState {
                     )
                 });
 
+            // Use normalized snapshot for MCP data if available (Zhipu only)
+            let (mcp_title, mcp_value, mcp_percent, mcp_limit, mcp_reset) = normalized
+                .map(|n| {
+                    (
+                        resolve_mcp_title(record.provider),
+                        n.mcp_value.clone(),
+                        n.mcp_numeric,
+                        n.mcp_limit,
+                        n.mcp_reset_at_unix_ms,
+                    )
+                })
+                .unwrap_or_else(|| {
+                    (resolve_mcp_title(record.provider), None, None, None, None)
+                });
+
             return Ok(ProviderSnapshotView {
                 provider: record.provider,
                 provider_label: record.provider.display_name().to_string(),
@@ -365,6 +389,12 @@ impl AppState {
                 secondary_percent,
                 secondary_reset_at_label: secondary_reset
                     .and_then(|value| format_reset_label(value, now_ms).ok()),
+                mcp_title,
+                mcp_value,
+                mcp_percent,
+                mcp_limit,
+                mcp_reset_at_label: mcp_reset
+                    .and_then(|value| format_reset_label(value, now_ms).ok()),
             });
         }
 
@@ -385,6 +415,11 @@ impl AppState {
             secondary_value: Some("0%".to_string()),
             secondary_percent: Some(0.0),
             secondary_reset_at_label: None,
+            mcp_title: resolve_mcp_title(record.provider),
+            mcp_value: None,
+            mcp_percent: None,
+            mcp_limit: None,
+            mcp_reset_at_label: None,
         })
     }
 
@@ -466,8 +501,15 @@ fn resolve_headline_title(provider: ProviderKind, message: Option<&str>) -> Stri
 fn resolve_secondary_title(provider: ProviderKind) -> Option<String> {
     match provider {
         ProviderKind::Kimi => Some("7 天额度".to_string()),
-        ProviderKind::Zhipu => Some("7 天额度".to_string()),
+        ProviderKind::Zhipu => Some("Token (5小时)".to_string()),
         ProviderKind::Minimax => Some("总配额".to_string()),
+    }
+}
+
+fn resolve_mcp_title(provider: ProviderKind) -> Option<String> {
+    match provider {
+        ProviderKind::Zhipu => Some("MCP (1个月)".to_string()),
+        _ => None,
     }
 }
 

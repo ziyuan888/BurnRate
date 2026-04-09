@@ -27,6 +27,12 @@ export type ProviderSnapshotView = {
   secondaryValue: string | null;
   secondaryPercent: number | null;
   secondaryResetAtLabel: string | null;
+  // MCP quota for Zhipu (monthly MCP calls: current/limit with percentage)
+  mcpTitle: string | null;
+  mcpValue: string | null;
+  mcpPercent: number | null;
+  mcpLimit: number | null;
+  mcpResetAtLabel: string | null;
 };
 
 export type ToolCall = {

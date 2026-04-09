@@ -73,6 +73,10 @@ pub fn parse_balance_response(payload: &Value) -> Result<NormalizedSnapshot> {
         secondary_value: None,
         secondary_numeric: None,
         secondary_reset_at_unix_ms: None,
+        mcp_value: None,
+        mcp_numeric: None,
+        mcp_limit: None,
+        mcp_reset_at_unix_ms: None,
     })
 }
 
@@ -125,6 +129,10 @@ pub fn parse_coding_usage_response(payload: &Value) -> Result<NormalizedSnapshot
         secondary_value: Some(format_percent(weekly_used_ratio)),
         secondary_numeric: Some(weekly_used_ratio),
         secondary_reset_at_unix_ms: weekly_reset,
+        mcp_value: None,
+        mcp_numeric: None,
+        mcp_limit: None,
+        mcp_reset_at_unix_ms: None,
     })
 }
 

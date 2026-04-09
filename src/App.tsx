@@ -135,6 +135,13 @@ function PopoverSurface({ onOpenSettings }: { onOpenSettings: () => void }) {
       // Parse secondary progress for dual-quota providers (check null/undefined, not falsy)
       secondaryProgress: p.secondaryPercent != null ? { percent: Math.round(p.secondaryPercent * 100) } : null,
       secondaryRemainingTime: p.secondaryResetAtLabel || null,
+      // Parse MCP progress for Zhipu
+      mcpProgress: p.mcpPercent != null ? { 
+        percent: Math.round(p.mcpPercent * 100),
+        value: p.mcpValue,
+        limit: p.mcpLimit,
+      } : null,
+      mcpRemainingTime: p.mcpResetAtLabel || null,
     }));
   }, [dashboard]);
 
@@ -192,67 +199,127 @@ function PopoverSurface({ onOpenSettings }: { onOpenSettings: () => void }) {
           style={{ '--delay': `${index * 0.1}s` } as React.CSSProperties}
         >
           <div className="card-header">
-            <span className="card-title">{provider.providerLabel}</span>
-            <span className={clsx(
-              "card-badge",
-              provider.status === 'healthy' && "badge-healthy",
-              provider.status === 'warning' && "badge-warning",
-              provider.status === 'danger' && "badge-danger"
-            )}>
-              {provider.headlineValue}
-            </span>
-          </div>
-          <div className="card-content">
-            {/* Primary progress bar */}
-            <div className="progress-header">
-              <span className="progress-label">{provider.headlineTitle || '当前用量'}</span>
-              <span className={clsx("progress-value", provider.progress.percent > 80 && "warning", provider.progress.percent > 95 && "danger")}>
+            <div className="card-header-left">
+              <span className="card-title">
+                {provider.provider === 'zhipu' ? '智谱 coding plan 用量' : provider.providerLabel}
+              </span>
+              {provider.provider === 'zhipu' && (
+                <span className="card-subtitle">Default Account</span>
+              )}
+            </div>
+            <div className="card-header-right">
+              {/* Circular progress indicator for Zhipu */}
+              {provider.provider === 'zhipu' && (
+                <div className={clsx(
+                  "circular-progress",
+                  provider.progress.percent > 80 && "warning",
+                  provider.progress.percent > 95 && "danger"
+                )}>
+                  <svg viewBox="0 0 36 36" className="circular-chart">
+                    <path
+                      className="circle-bg"
+                      d="M18 2.0845
+                        a 15.9155 15.9155 0 0 1 0 31.831
+                        a 15.9155 15.9155 0 0 1 0 -31.831"
+                    />
+                    <path
+                      className="circle"
+                      strokeDasharray={`${provider.progress.percent}, 100`}
+                      d="M18 2.0845
+                        a 15.9155 15.9155 0 0 1 0 31.831
+                        a 15.9155 15.9155 0 0 1 0 -31.831"
+                    />
+                  </svg>
+                  <span className="circular-value">{provider.progress.percent}</span>
+                </div>
+              )}
+              <span className={clsx(
+                "card-badge",
+                provider.status === 'healthy' && "badge-healthy",
+                provider.status === 'warning' && "badge-warning",
+                provider.status === 'danger' && "badge-danger"
+              )}>
                 {provider.headlineValue}
               </span>
             </div>
-            <div className="progress-bar-bg">
-              <div 
-                className={clsx(
-                  "progress-bar-fill",
-                  provider.progress.percent > 80 && "warning",
-                  provider.progress.percent > 95 && "danger"
-                )}
-                style={{ width: `${Math.min(provider.progress.percent, 100)}%` }}
-              />
-            </div>
-            <div className="progress-meta">
-              <ClockIcon />
-              <span>重置 {provider.remainingTime}</span>
-            </div>
-
-            {/* Secondary progress bar */}
-            {provider.secondaryProgress && provider.secondaryTitle && (
-              <div className="secondary-progress">
-                <div className="progress-header secondary-header">
-                  <span className="progress-label secondary-label">
-                    {provider.secondaryTitle}
+          </div>
+          <div className="card-content">
+            {/* MCP progress bar for Zhipu */}
+            {provider.mcpProgress && provider.mcpTitle && (
+              <div className="progress-item">
+                <div className="progress-header">
+                  <span className="progress-label">{provider.mcpTitle}</span>
+                  <span className={clsx("progress-value", provider.mcpProgress.percent > 80 && "warning", provider.mcpProgress.percent > 95 && "danger")}>
+                    {provider.mcpProgress.value || `${provider.mcpProgress.percent}%`}
                   </span>
-                  <span className={clsx("progress-value secondary-value", provider.secondaryProgress.percent > 80 && "warning", provider.secondaryProgress.percent > 95 && "danger")}>
+                </div>
+                <div className="progress-bar-bg">
+                  <div 
+                    className={clsx(
+                      "progress-bar-fill",
+                      provider.mcpProgress.percent > 80 && "warning",
+                      provider.mcpProgress.percent > 95 && "danger"
+                    )}
+                    style={{ width: `${Math.min(provider.mcpProgress.percent, 100)}%` }}
+                  />
+                </div>
+                <div className="progress-meta">
+                  <ClockIcon />
+                  <span>{provider.mcpRemainingTime ? `${provider.mcpRemainingTime} 后重置` : '--'}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Secondary progress bar (Token 5-hour for Zhipu) */}
+            {provider.secondaryProgress && provider.secondaryTitle && (
+              <div className="progress-item">
+                <div className="progress-header">
+                  <span className="progress-label">{provider.secondaryTitle}</span>
+                  <span className={clsx("progress-value", provider.secondaryProgress.percent > 80 && "warning", provider.secondaryProgress.percent > 95 && "danger")}>
                     {provider.secondaryValue}
                   </span>
                 </div>
-                <div className="progress-bar-bg secondary-bar-bg">
+                <div className="progress-bar-bg">
                   <div 
                     className={clsx(
-                      "progress-bar-fill secondary-bar-fill",
+                      "progress-bar-fill",
                       provider.secondaryProgress.percent > 80 && "warning",
                       provider.secondaryProgress.percent > 95 && "danger"
                     )}
                     style={{ width: `${Math.min(provider.secondaryProgress.percent, 100)}%` }}
                   />
                 </div>
-                {provider.secondaryRemainingTime && (
-                  <div className="progress-meta secondary-meta">
-                    <ClockIcon />
-                    <span>重置 {provider.secondaryRemainingTime}</span>
-                  </div>
-                )}
+                <div className="progress-meta">
+                  <ClockIcon />
+                  <span>{provider.secondaryRemainingTime ? `${provider.secondaryRemainingTime} 后重置` : '--'}</span>
+                </div>
               </div>
+            )}
+
+            {/* Primary progress bar for non-Zhipu providers */}
+            {provider.provider !== 'zhipu' && (
+              <>
+                <div className="progress-header">
+                  <span className="progress-label">{provider.headlineTitle || '当前用量'}</span>
+                  <span className={clsx("progress-value", provider.progress.percent > 80 && "warning", provider.progress.percent > 95 && "danger")}>
+                    {provider.headlineValue}
+                  </span>
+                </div>
+                <div className="progress-bar-bg">
+                  <div 
+                    className={clsx(
+                      "progress-bar-fill",
+                      provider.progress.percent > 80 && "warning",
+                      provider.progress.percent > 95 && "danger"
+                    )}
+                    style={{ width: `${Math.min(provider.progress.percent, 100)}%` }}
+                  />
+                </div>
+                <div className="progress-meta">
+                  <ClockIcon />
+                  <span>重置 {provider.remainingTime}</span>
+                </div>
+              </>
             )}
           </div>
         </div>

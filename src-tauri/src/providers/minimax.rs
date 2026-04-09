@@ -141,6 +141,10 @@ pub fn parse_quota_response(payload: &Value, model_hint: Option<&str>) -> Result
         secondary_value: secondary.0,
         secondary_numeric: secondary.1,
         secondary_reset_at_unix_ms: None,
+        mcp_value: None,
+        mcp_numeric: None,
+        mcp_limit: None,
+        mcp_reset_at_unix_ms: None,
     })
 }
 

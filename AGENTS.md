@@ -1,26 +1,85 @@
 # Repository Guidelines
 
-## Project Structure & Module Organization
-BurnRate is a macOS menu-bar app built with `Tauri 2 + React 19 + TypeScript + Rust`. Frontend code lives in `src/`: `App.tsx` renders the popover and settings surfaces, `store/useBurnRateStore.ts` owns UI state, and `lib/burnrate.ts` bridges Tauri commands. Frontend tests live in `src/App.test.tsx` and `src/test/setup.ts`. Native code lives in `src-tauri/src/`; keep Tauri commands in `commands.rs`, orchestration in `app_state.rs`, and tray/window wiring in `tray.rs`. Static assets belong in `public/` or `src/assets/`. Generated output such as `dist/` and `src-tauri/target/` should not be hand-edited.
+**Generated:** 2026-04-09  
+**Project:** BurnRate - macOS menu-bar AI quota monitor  
+**Stack:** Tauri 2 + React 19 + TypeScript + Rust
 
-## Build, Test, and Development Commands
-Use the local Rust toolchain first if needed: `. ./.cargo/env`. Main commands:
+---
 
-- `npm run tauri dev`: start the Vite frontend and Tauri desktop shell.
-- `npm run build`: run TypeScript checks and build the web bundle into `dist/`.
-- `npm test`: run frontend tests with Vitest once.
-- `npm run test:watch`: run frontend tests in watch mode.
-- `cd src-tauri && cargo test`: run Rust tests for provider parsing and backend behavior.
-- `npm run tauri build -- --debug`: build the macOS debug app bundle.
+## Project Overview
+BurnRate is a macOS menu-bar application that monitors AI provider usage quotas for 智谱清言 (Zhipu), MiniMax, and Kimi. It displays real-time quota status via a tray icon with a glassmorphism popover dashboard and separate settings window.
 
-## Coding Style & Naming Conventions
-Use TypeScript with `strict` mode and 2-space indentation. Prefer functional React components, `camelCase` for variables/functions, and `PascalCase` for component/type names. Keep frontend types aligned with Rust `serde(rename_all = "camelCase")` payloads. In Rust, use `snake_case` for modules/functions. There is no lint script in this snapshot, so use `npm run build` and `cargo test` as the minimum quality gate.
+## Structure
+```
+BurnRate/
+├── src/                    # React 19 frontend
+│   ├── App.tsx            # Root: popover vs settings routing
+│   ├── lib/burnrate.ts    # Tauri invoke wrappers + types
+│   ├── store/             # Zustand state management
+│   └── test/              # Vitest setup
+├── src-tauri/             # Tauri 2 + Rust backend
+│   ├── src/               # Rust source (see src-tauri/src/AGENTS.md)
+│   ├── Cargo.toml         # Rust dependencies
+│   └── tauri.conf.json    # App config
+├── public/                # Static assets
+└── docs/plans/            # Documentation
+```
 
-## Testing Guidelines
-Frontend tests use `Vitest`, `jsdom`, and `@testing-library/react`; name them `*.test.tsx` next to the feature or in `src/`. Backend tests live in `src-tauri/tests/` or inline Rust test modules. Add or update tests whenever command payloads, provider parsing, or dashboard rendering logic changes. For UI changes, verify both the popover flow and the settings window.
+## Where to Look
+| Task | Location | Notes |
+|------|----------|-------|
+| UI state & rendering | `src/App.tsx` | 527 lines, routes popover/settings |
+| Tauri commands | `src/lib/burnrate.ts` | All `invoke()` wrappers in one place |
+| State management | `src/store/useBurnRateStore.ts` | Zustand store |
+| Rust orchestration | `src-tauri/src/app_state.rs` | Core refresh loop, 705 lines |
+| Provider APIs | `src-tauri/src/providers/` | zhipu.rs, minimax.rs, kimi.rs |
+| SQLite storage | `src-tauri/src/storage/db.rs` | Schema + CRUD |
 
-## Commit & Pull Request Guidelines
-This workspace snapshot does not include `.git` history, so no local commit convention can be inferred. Use short Conventional Commit style messages such as `feat(tray): add stale-data indicator` or `fix(provider): handle empty minimax response`. PRs should include a clear summary, affected areas (`src/` or `src-tauri/`), test evidence (`npm test`, `cargo test`), and screenshots for popover/settings UI changes.
+## Commands
+```bash
+# Development
+. ./.cargo/env           # Activate local Rust toolchain (optional)
+npm run tauri dev        # Vite (port 1420) + Tauri dev build
 
-## Security & Configuration Tips
-Do not hardcode API keys, endpoints, or sample secrets in `src/`, `src-tauri/`, or screenshots. When changing provider settings or persistence behavior, verify SQLite-backed state and masked-key UI behavior before merging.
+# Build
+npm run build            # TypeScript check + Vite build
+npm run tauri build -- --debug   # macOS .app bundle
+
+# Testing
+npm test                 # Frontend: Vitest + jsdom
+npm run test:watch       # Watch mode
+cd src-tauri && cargo test       # Backend: Rust tests
+```
+
+## Conventions
+- **TypeScript**: Strict mode, 2-space indent, camelCase vars/PascalCase types
+- **Rust**: snake_case modules/functions, PascalCase types, Edition 2021
+- **Types**: Frontend mirrors Rust `serde(rename_all = "camelCase")` exactly
+- **Testing**: Frontend `*.test.tsx` co-located; Rust tests in `src-tauri/tests/`
+- **API Keys**: Stored in SQLite `api_keys` table (plain-text local only); never in OS keyring
+
+## Anti-Patterns
+- **Never** add `invoke()` calls outside `lib/burnrate.ts` — keep all Tauri commands centralized
+- **Never** panic in provider fetchers — always return `Err` with context
+- **Never** store API keys in code/logs — use `mask_secret()` showing `****last4` only
+- **Never** block async runtime — all I/O uses `reqwest` + `tokio::time::sleep`
+- **Never** mutate dashboard/settings directly — treat Zustand state as immutable
+
+## Data Flow
+1. `spawn_background_refresh()` runs 60s tokio loop (min 15s)
+2. `refresh_all()` fans out to enabled providers via `join_all`
+3. Providers normalize to `NormalizedSnapshot` → stored in SQLite
+4. `DashboardState` built from latest + 7/30-day rollups
+5. Emitted as `dashboard://updated` → frontend Zustand store
+
+## Security Notes
+- API keys stored in local SQLite (`burnrate.db`), not system keychain
+- Current implementation: plain-text persistence (not encrypted)
+- Never commit screenshots with real keys visible
+- Use `mask_secret()` for UI display
+
+## CI/CD
+- **Workflow**: `.github/workflows/release.yml`
+- **Trigger**: Version tags (`v*`)
+- **Matrix**: macOS (aarch64), Ubuntu 22.04, Windows
+- **Action**: `tauri-apps/tauri-action@v0.6.2` for releases

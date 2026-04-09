@@ -106,6 +106,11 @@ pub struct NormalizedSnapshot {
     pub secondary_value: Option<String>,
     pub secondary_numeric: Option<f64>,
     pub secondary_reset_at_unix_ms: Option<i64>,
+    // MCP quota for Zhipu (monthly MCP calls limit)
+    pub mcp_value: Option<String>,
+    pub mcp_numeric: Option<f64>,
+    pub mcp_limit: Option<i64>,
+    pub mcp_reset_at_unix_ms: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -128,6 +133,12 @@ pub struct ProviderSnapshotView {
     pub secondary_value: Option<String>,
     pub secondary_percent: Option<f64>,
     pub secondary_reset_at_label: Option<String>,
+    // MCP quota for Zhipu (monthly MCP calls: current/limit with percentage)
+    pub mcp_title: Option<String>,
+    pub mcp_value: Option<String>,
+    pub mcp_percent: Option<f64>,
+    pub mcp_limit: Option<i64>,
+    pub mcp_reset_at_label: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]

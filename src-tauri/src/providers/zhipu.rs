@@ -49,7 +49,7 @@ pub fn parse_quota_response(payload: &Value) -> Result<NormalizedSnapshot> {
         .and_then(Value::as_array)
         .ok_or_else(|| anyhow!("智谱套餐接口缺少 limits"))?;
 
-    // Find 5-hour window (primary)
+    // Find 5-hour window (primary) - Token usage
     let rolling_limit = limits.iter().find(|item| {
         item.get("type").and_then(Value::as_str) == Some("TOKENS_LIMIT")
             && item.get("number").and_then(Value::as_i64) == Some(5)
@@ -105,6 +105,54 @@ pub fn parse_quota_response(payload: &Value) -> Result<NormalizedSnapshot> {
         })
         .unwrap_or((Some("0%".to_string()), Some(0.0), None));
 
+    // Find MCP limit (monthly MCP calls) - look for type "MCP_LIMIT" with 30-day window
+    let mcp_limit_item = limits.iter().find(|item| {
+        let item_type = item.get("type").and_then(Value::as_str);
+        let number = item.get("number").and_then(Value::as_i64);
+        // MCP_LIMIT with 30-day window or 1-month window
+        (item_type == Some("MCP_LIMIT") || item_type == Some("CALLS_LIMIT"))
+            && (number == Some(30) || number == Some(1))
+    });
+
+    let (mcp_value, mcp_numeric, mcp_limit, mcp_reset_at) = mcp_limit_item
+        .map(|mcp| {
+            let mcp_percent = mcp
+                .get("percentage")
+                .and_then(Value::as_f64)
+                .unwrap_or(0.0);
+            let mcp_ratio = if mcp_percent > 1.0 { mcp_percent / 100.0 } else { mcp_percent };
+            let mcp_limit_val = mcp
+                .get("limit")
+                .and_then(Value::as_i64)
+                .or_else(|| mcp.get("max").and_then(Value::as_i64))
+                .or_else(|| mcp.get("total").and_then(Value::as_i64));
+            let mcp_current = mcp
+                .get("current")
+                .and_then(Value::as_i64)
+                .or_else(|| mcp.get("used").and_then(Value::as_i64));
+            let mcp_reset = [
+                mcp.get("nextResetTime"),
+                mcp.get("next_reset_time"),
+                mcp.get("resetAt"),
+                mcp.get("reset_at"),
+            ]
+            .into_iter()
+            .find_map(parse_unix_timestamp_ms);
+            
+            let value_str = match (mcp_current, mcp_limit_val) {
+                (Some(cur), Some(lim)) if lim > 0 => format!("{}/{}", cur, lim),
+                _ => format_percent(mcp_ratio),
+            };
+            
+            (
+                Some(value_str),
+                Some(mcp_ratio),
+                mcp_limit_val,
+                mcp_reset,
+            )
+        })
+        .unwrap_or((None, None, None, None));
+
     Ok(NormalizedSnapshot {
         provider: ProviderKind::Zhipu,
         status: status_from_ratio(numeric_value),
@@ -115,6 +163,10 @@ pub fn parse_quota_response(payload: &Value) -> Result<NormalizedSnapshot> {
         secondary_value,
         secondary_numeric,
         secondary_reset_at_unix_ms: secondary_reset_at,
+        mcp_value,
+        mcp_numeric,
+        mcp_limit,
+        mcp_reset_at_unix_ms: mcp_reset_at,
     })
 }
 
