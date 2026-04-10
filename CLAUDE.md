@@ -69,7 +69,8 @@ Single-page React app shared between two Tauri windows. `App.tsx` detects which 
 | `tray.rs` | Menu-bar tray setup — left-click toggles popover, double-click opens settings, right-click shows context menu. Tooltip shows compact provider status (e.g. `智谱清言: 45% \| MiniMax: ok \| Kimi: ¥12.50`), updated on every refresh via `update_tray_tooltip()` |
 | `providers/zhipu.rs` | Fetches Zhipu 5-hour rolling window quota (`/api/monitor/usage/quota/limit`) |
 | `providers/minimax.rs` | Fetches MiniMax coding plan usage (`/v1/api/openplatform/coding_plan/remains`); supports `model_hint` to select a specific model |
-| `providers/kimi.rs` | Fetches Kimi account balance (`/v1/users/me/balance`) |
+| `providers/kimi.rs` | Fetches Kimi account balance (`/v1/users/me/balance`) or Kimi Code coding usage (`/apiv2/.../BillingService/GetUsages`) depending on token type |
+| `browser_cookies.rs` | Scans Chromium-family browser cookies to auto-import Kimi session tokens (`kimi-auth`) |
 | `storage/db.rs` | SQLite schema init + CRUD for `app_settings`, `provider_settings`, `snapshots`, `api_keys` tables. Includes `load_latest_metrics()` for aggregated usage stats (estimated tokens/messages based on quota ratio). Opens a fresh `Connection` per call (no connection pooling) |
 | `storage/rollup.rs` | `compute_rollup()` — aggregates snapshot metrics into 7-day / 30-day summaries (latest%, peak%, avg%) |
 
@@ -115,6 +116,8 @@ Cards animate in via `cardSlideIn` keyframes with staggered `--delay` CSS variab
 ### Reset time display
 
 Each provider card can render `reset_at_label` as `下次重置`. The backend normalizes reset timestamps from either numeric or string JSON fields, accepts both second and millisecond precision, and formats them in local time as `今天 HH:mm`, `明天 HH:mm`, or `MM-DD HH:mm`.
+
+**Kimi special case**: Kimi's 5-hour quota is a **sliding window**, not a fixed cycle. `infer_cycle_duration_ms()` returns `None` for Kimi so the app never extrapolates a fixed reset interval from historical timestamps. The displayed reset time comes directly from the API's real-time `resetTime`.
 
 ### Tray tooltip
 
