@@ -1,6 +1,6 @@
 # BurnRate
 
-![Version](https://img.shields.io/badge/version-0.2.4-blue?logo=semver)
+![Version](https://img.shields.io/badge/version-0.2.5-blue?logo=semver)
 ![macOS](https://img.shields.io/badge/platform-macOS-111827?logo=apple&logoColor=white)
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)
 ![React 19](https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white)

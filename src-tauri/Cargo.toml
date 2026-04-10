@@ -1,6 +1,6 @@
 [package]
 name = "burn-rate"
-version = "0.2.4"
+version = "0.2.5"
 description = "A menubar usage monitor for Zhipu, MiniMax and Kimi"
 authors = ["ziyuanweng"]
 edition = "2021"
