@@ -16,6 +16,15 @@ import "./App.css";
 
 type PopoverView = "dashboard" | "settings";
 
+const REFRESH_PRESETS = [
+  { label: "手动刷新", value: 0 },
+  { label: "1 分钟", value: 60 },
+  { label: "2 分钟", value: 120 },
+  { label: "5 分钟", value: 300 },
+  { label: "15 分钟", value: 900 },
+  { label: "30 分钟", value: 1800 },
+];
+
 // Icons as simple SVG components
 const RefreshIcon = ({ style }: { style?: React.CSSProperties }) => (
   <svg style={{ width: '16px', height: '16px', ...style }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -143,6 +152,7 @@ function PopoverSurface({ onOpenSettings }: { onOpenSettings: () => void }) {
         limit: p.mcpLimit,
       } : null,
       mcpRemainingTime: p.mcpResetAtLabel || null,
+      paceLabel: p.paceLabel,
     }));
   }, [dashboard]);
 
@@ -320,6 +330,11 @@ function PopoverSurface({ onOpenSettings }: { onOpenSettings: () => void }) {
                   <ClockIcon />
                   <span>重置 {provider.remainingTime}</span>
                 </div>
+                {provider.paceLabel && (
+                  <div className="progress-meta" style={{ marginTop: '2px', opacity: 0.8 }}>
+                    <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)' }}>{provider.paceLabel}</span>
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -468,16 +483,32 @@ function SettingsSurface({
       <section className="settings-grid">
         <article className="settings-panel">
           <h2>运行策略</h2>
-          <label className="field">
-            <span>自动刷新间隔（秒）</span>
-            <input
-              value={refreshInterval}
-              type="number"
-              min={15}
-              step={15}
-              onChange={(event) => setRefreshInterval(event.currentTarget.value)}
-            />
-          </label>
+          <div style={{ marginBottom: '12px' }}>
+            <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)' }}>自动刷新间隔</span>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
+              {REFRESH_PRESETS.map((preset) => {
+                const selected = Number.parseInt(refreshInterval || "300", 10) === preset.value;
+                return (
+                  <button
+                    key={preset.value}
+                    type="button"
+                    className={clsx(
+                      "ghost-button",
+                      selected && "primary-button"
+                    )}
+                    style={{
+                      padding: '6px 12px',
+                      fontSize: '13px',
+                      opacity: selected ? 1 : 0.8,
+                    }}
+                    onClick={() => setRefreshInterval(String(preset.value))}
+                  >
+                    {preset.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           <div className="toggle-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '14px' }}>
             <span>开机自动启动</span>
             <button
@@ -493,7 +524,7 @@ function SettingsSurface({
           <button
             className="primary-button"
             style={{ marginTop: '18px' }}
-            onClick={() => void saveRuntime(Number.parseInt(refreshInterval || "60", 10))}
+            onClick={() => void saveRuntime(Number.parseInt(refreshInterval || "300", 10))}
           >
             保存运行设置
           </button>

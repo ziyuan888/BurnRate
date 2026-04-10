@@ -35,6 +35,7 @@ pub async fn refresh_now(
     state: State<'_, AppState>,
 ) -> Result<DashboardState, String> {
     let dashboard = state.refresh_all().await.map_err(|error| error.to_string())?;
+    crate::tray::update_tray_icon(&app, &dashboard);
     app.emit("dashboard://updated", dashboard.clone())
         .map_err(|error: tauri::Error| error.to_string())?;
     Ok(dashboard)
@@ -87,14 +88,16 @@ pub fn quit_app(app: AppHandle) {
 
 #[tauri::command]
 pub fn toggle_provider(
-    _app: AppHandle,
+    app: AppHandle,
     state: State<'_, AppState>,
     provider: ProviderKind,
 ) -> Result<DashboardState, String> {
     state
         .toggle_provider(provider)
         .map_err(|error| error.to_string())?;
-    state.build_dashboard_state().map_err(|error| error.to_string())
+    let dashboard = state.build_dashboard_state().map_err(|error| error.to_string())?;
+    crate::tray::update_tray_icon(&app, &dashboard);
+    Ok(dashboard)
 }
 
 #[tauri::command]

@@ -43,14 +43,21 @@ impl AppState {
         let state = self.clone();
         tauri::async_runtime::spawn(async move {
             if let Ok(dashboard) = state.refresh_all().await {
+                crate::tray::update_tray_icon(&app, &dashboard);
                 let _ = app.emit("dashboard://updated", dashboard);
             }
             crate::tray::update_tray_tooltip(&app, &state);
 
             loop {
                 let interval_secs = state.refresh_interval_secs().unwrap_or(60).max(15);
+                if interval_secs == 0 {
+                    // Manual refresh mode: sleep for a long time and re-check settings
+                    tokio::time::sleep(Duration::from_secs(3600)).await;
+                    continue;
+                }
                 tokio::time::sleep(Duration::from_secs(interval_secs)).await;
                 if let Ok(dashboard) = state.refresh_all().await {
+                    crate::tray::update_tray_icon(&app, &dashboard);
                     let _ = app.emit("dashboard://updated", dashboard);
                 }
                 crate::tray::update_tray_tooltip(&app, &state);
@@ -217,7 +224,13 @@ impl AppState {
     }
 
     pub fn save_runtime_preferences(&self, refresh_interval_secs: u64) -> Result<()> {
-        db::save_refresh_interval_secs(&self.db_path, refresh_interval_secs.max(15))
+        // 0 means manual refresh; any positive value must be at least 15s.
+        let stored = if refresh_interval_secs == 0 {
+            0
+        } else {
+            refresh_interval_secs.max(15)
+        };
+        db::save_refresh_interval_secs(&self.db_path, stored)
     }
 
     fn refresh_interval_secs(&self) -> Result<u64> {
@@ -324,6 +337,7 @@ impl AppState {
                 mcp_percent: None,
                 mcp_limit: None,
                 mcp_reset_at_label: None,
+                pace_label: None,
             });
         }
 
@@ -399,6 +413,13 @@ impl AppState {
                 mcp_limit,
                 mcp_reset_at_label: mcp_reset
                     .and_then(|value| format_reset_label(value, now_ms).ok()),
+                pace_label: match record.provider {
+                    ProviderKind::Kimi => secondary_reset
+                        .and_then(|reset_at| {
+                            compute_pace(secondary_percent.unwrap_or(0.0), reset_at, now_ms, days_to_ms(7))
+                        }),
+                    _ => None,
+                },
             });
         }
 
@@ -424,6 +445,7 @@ impl AppState {
             mcp_percent: None,
             mcp_limit: None,
             mcp_reset_at_label: None,
+            pace_label: None,
         })
     }
 
@@ -589,6 +611,46 @@ fn resolve_reset_at_unix_ms(
     }
 
     Some(next_reset)
+}
+
+fn compute_pace(used_ratio: f64, reset_at_unix_ms: i64, now_ms: i64, cycle_ms: i64) -> Option<String> {
+    if used_ratio <= 0.0 || reset_at_unix_ms <= now_ms || cycle_ms <= 0 {
+        return None;
+    }
+    let window_start = reset_at_unix_ms - cycle_ms;
+    let elapsed_ms = now_ms.saturating_sub(window_start);
+    if elapsed_ms <= 0 {
+        return None;
+    }
+    // Hide pace when less than 3% of the window has elapsed (CodexBar behavior)
+    if elapsed_ms < (cycle_ms as f64 * 0.03) as i64 {
+        return None;
+    }
+
+    let expected_ratio = (elapsed_ms as f64) / (cycle_ms as f64);
+    let diff = used_ratio - expected_ratio;
+
+    if diff.abs() < 0.02 {
+        return Some("使用节奏正常".to_string());
+    }
+
+    if diff > 0.0 {
+        let deficit_pct = (diff * 100.0).round() as i64;
+        if used_ratio >= 1.0 {
+            return Some(format!("已耗尽 · 超支 {}%", deficit_pct));
+        }
+        let remaining_capacity = 1.0 - used_ratio;
+        let usage_rate = used_ratio / (elapsed_ms as f64);
+        let runs_out_ms = remaining_capacity / usage_rate;
+        let runs_out_hours = (runs_out_ms / 3600_000.0).round() as i64;
+        if runs_out_hours <= 0 {
+            return Some(format!("超支 {}% · 即将耗尽", deficit_pct));
+        }
+        return Some(format!("超支 {}% · 预计 {} 小时后耗尽", deficit_pct, runs_out_hours));
+    }
+
+    let reserve_pct = ((-diff) * 100.0).round() as i64;
+    Some(format!("结余 {}% · 使用节奏偏慢", reserve_pct))
 }
 
 fn infer_cycle_duration_ms(provider: ProviderKind, reset_history: &[i64]) -> Option<i64> {

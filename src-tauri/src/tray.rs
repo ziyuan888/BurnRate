@@ -5,6 +5,7 @@ use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_positioner::{Position, WindowExt};
 
 use crate::app_state::AppState;
+use crate::models::DashboardState;
 
 pub fn configure(app: &AppHandle, state: &AppState) -> Result<()> {
     let refresh_item = MenuItemBuilder::with_id("refresh", "立即刷新").build(app)?;
@@ -27,6 +28,7 @@ pub fn configure(app: &AppHandle, state: &AppState) -> Result<()> {
 
     TrayIconBuilder::with_id("burn-rate")
         .icon(icon)
+        .icon_as_template(true)
         .tooltip(&tooltip)
         .menu(&menu)
         .show_menu_on_left_click(false)
@@ -81,6 +83,40 @@ pub fn update_tray_tooltip(app: &AppHandle, state: &AppState) {
     let tooltip = state.build_tooltip_text();
     if let Some(tray) = app.tray_by_id("burn-rate") {
         let _ = tray.set_tooltip(Some(&tooltip));
+    }
+}
+
+pub fn update_tray_icon(app: &AppHandle, dashboard: &DashboardState) {
+    // Compute the most "stressed" ratios across all enabled providers.
+    let mut primary_ratio = 0.0_f64;
+    let mut secondary_ratio = 0.0_f64;
+
+    for provider in &dashboard.providers {
+        if !provider.is_enabled {
+            continue;
+        }
+        // numeric_value for Zhipu/Minimax/Kimi-coding is a usage ratio 0..1.
+        // For Kimi balance mode it is a currency amount — skip when > 1.0.
+        if let Some(pct) = provider.headline_value.strip_suffix('%') {
+            if let Ok(val) = pct.parse::<f64>() {
+                let ratio = val / 100.0;
+                if ratio <= 1.0 {
+                    primary_ratio = primary_ratio.max(ratio);
+                }
+            }
+        }
+        if let Some(sec) = provider.secondary_percent {
+            if sec >= 0.0 && sec <= 1.0 {
+                secondary_ratio = secondary_ratio.max(sec);
+            }
+        }
+    }
+
+    let rgba = crate::tray_icon::generate_meter_icon(primary_ratio, secondary_ratio);
+    let image = tauri::image::Image::new_owned(rgba, 22, 22);
+    if let Some(tray) = app.tray_by_id("burn-rate") {
+        let _ = tray.set_icon(Some(image));
+        let _ = tray.set_icon_as_template(true);
     }
 }
 

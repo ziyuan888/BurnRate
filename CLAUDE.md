@@ -63,10 +63,10 @@ Single-page React app shared between two Tauri windows. `App.tsx` detects which 
 |---|---|
 | `lib.rs` | App bootstrap — registers plugins (autostart, positioner, opener), initializes `AppState`, sets up tray, registers command handlers |
 | `main.rs` | Entry point, calls `tauri_app_lib::run()` |
-| `app_state.rs` | Core orchestrator — owns `reqwest::Client` and DB path. Handles background refresh loop, API key management via SQLite, dashboard/settings state building, `build_usage_stats()` for aggregated usage metrics, provider toggle, and provider refresh dispatch |
+| `app_state.rs` | Core orchestrator — owns `reqwest::Client` and DB path. Handles background refresh loop, API key management via SQLite, dashboard/settings state building, `build_usage_stats()` for aggregated usage metrics, provider toggle, provider refresh dispatch, and `compute_pace()` for usage-pace analysis |
 | `commands.rs` | 8 `#[tauri::command]` handlers — thin delegations to `AppState` methods |
 | `models.rs` | Shared types: `ProviderKind`, `SnapshotStatus`, `NormalizedSnapshot`, `StoredSnapshot`, `DashboardState`, `SettingsState`, `UsageStats`, `ToolCall`, `UsageMetrics`, view/input types |
-| `tray.rs` | Menu-bar tray setup — left-click toggles popover, double-click opens settings, right-click shows context menu. Tooltip shows compact provider status (e.g. `智谱清言: 45% \| MiniMax: ok \| Kimi: ¥12.50`), updated on every refresh via `update_tray_tooltip()` |
+| `tray.rs` | Menu-bar tray setup — left-click toggles popover, double-click opens settings, right-click shows context menu. Tooltip shows compact provider status (e.g. `智谱清言: 45% \| MiniMax: ok \| Kimi: ¥12.50`), updated on every refresh via `update_tray_tooltip()`. Dynamic 22×22 two-bar meter icon is generated in `tray_icon.rs` and set via `update_tray_icon()` on each refresh |
 | `providers/zhipu.rs` | Fetches Zhipu 5-hour rolling window quota (`/api/monitor/usage/quota/limit`) |
 | `providers/minimax.rs` | Fetches MiniMax coding plan usage (`/v1/api/openplatform/coding_plan/remains`); supports `model_hint` to select a specific model |
 | `providers/kimi.rs` | Fetches Kimi account balance (`/v1/users/me/balance`) or Kimi Code coding usage (`/apiv2/.../BillingService/GetUsages`) depending on token type |
@@ -118,6 +118,14 @@ Cards animate in via `cardSlideIn` keyframes with staggered `--delay` CSS variab
 Each provider card can render `reset_at_label` as `下次重置`. The backend normalizes reset timestamps from either numeric or string JSON fields, accepts both second and millisecond precision, and formats them in local time as `今天 HH:mm`, `明天 HH:mm`, or `MM-DD HH:mm`.
 
 **Kimi special case**: Kimi's 5-hour quota is a **sliding window**, not a fixed cycle. `infer_cycle_duration_ms()` returns `None` for Kimi so the app never extrapolates a fixed reset interval from historical timestamps. The displayed reset time comes directly from the API's real-time `resetTime`.
+
+### Pace tracking
+
+`compute_pace()` compares actual usage against an even-consumption budget spread across the reset window. It is currently enabled for Kimi's 7-day weekly quota. Output strings are Chinese-localized (`使用节奏正常`, `超支 X% · 预计 Y 小时后耗尽`, `结余 X% · 使用节奏偏慢`). Pace is hidden when less than 3% of the window has elapsed.
+
+### Tray icon
+
+`tray_icon::generate_meter_icon()` renders a 22×22 RGBA two-bar meter: top bar = primary usage ratio, bottom bar = secondary usage ratio. `tray::update_tray_icon()` updates the icon after every refresh and provider toggle. The icon is set as a macOS template image so it inverts correctly in Dark Mode.
 
 ### Tray tooltip
 

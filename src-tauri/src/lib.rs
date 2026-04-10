@@ -5,6 +5,7 @@ mod models;
 pub mod providers;
 pub mod storage;
 mod tray;
+mod tray_icon;
 
 use app_state::AppState;
 use tauri::Manager;

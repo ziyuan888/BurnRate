@@ -31,9 +31,11 @@ BurnRate/
 | UI state & rendering | `src/App.tsx` | 527 lines, routes popover/settings |
 | Tauri commands | `src/lib/burnrate.ts` | All `invoke()` wrappers in one place |
 | State management | `src/store/useBurnRateStore.ts` | Zustand store |
-| Rust orchestration | `src-tauri/src/app_state.rs` | Core refresh loop, 705 lines |
+| Rust orchestration | `src-tauri/src/app_state.rs` | Core refresh loop + pace tracking |
 | Provider APIs | `src-tauri/src/providers/` | zhipu.rs, minimax.rs, kimi.rs |
 | Browser cookie import | `src-tauri/src/browser_cookies.rs` | Chromium-family cookie scanner for Kimi |
+| Tray icon generator | `src-tauri/src/tray_icon.rs` | 22×22 dynamic two-bar meter renderer |
+| Tray setup | `src-tauri/src/tray.rs` | Tray event handling + icon/tooltip updates |
 | SQLite storage | `src-tauri/src/storage/db.rs` | Schema + CRUD |
 
 ## Commands
@@ -67,11 +69,12 @@ cd src-tauri && cargo test       # Backend: Rust tests
 - **Never** mutate dashboard/settings directly — treat Zustand state as immutable
 
 ## Data Flow
-1. `spawn_background_refresh()` runs 60s tokio loop (min 15s)
+1. `spawn_background_refresh()` runs tokio loop with configurable cadence: manual / 1m / 2m / 5m / 15m / 30m
 2. `refresh_all()` fans out to enabled providers via `join_all`
 3. Providers normalize to `NormalizedSnapshot` → stored in SQLite
-4. `DashboardState` built from latest + 7/30-day rollups
-5. Emitted as `dashboard://updated` → frontend Zustand store
+4. `DashboardState` built from latest + 7/30-day rollups + optional `pace_label`
+5. `update_tray_icon()` generates a dynamic 22×22 two-bar meter from the most stressed provider ratios
+6. Emitted as `dashboard://updated` → frontend Zustand store
 
 ## Security Notes
 - API keys stored in local SQLite (`burnrate.db`), not system keychain

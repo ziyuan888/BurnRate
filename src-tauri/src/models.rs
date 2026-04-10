@@ -139,6 +139,7 @@ pub struct ProviderSnapshotView {
     pub mcp_percent: Option<f64>,
     pub mcp_limit: Option<i64>,
     pub mcp_reset_at_label: Option<String>,
+    pub pace_label: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]

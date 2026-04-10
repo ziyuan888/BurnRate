@@ -33,6 +33,7 @@ export type ProviderSnapshotView = {
   mcpPercent: number | null;
   mcpLimit: number | null;
   mcpResetAtLabel: string | null;
+  paceLabel: string | null;
 };
 
 export type ToolCall = {
