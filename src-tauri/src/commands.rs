@@ -1,3 +1,4 @@
+use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 use tauri_plugin_autostart::ManagerExt;
 
@@ -6,6 +7,12 @@ use crate::models::{
     DashboardState, ProviderKind, SaveProviderSettingsInput, SaveRuntimePreferencesInput,
     SettingsState,
 };
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ImportKimiCookieResult {
+    pub token: String,
+    pub source: String,
+}
 
 #[tauri::command]
 pub fn get_dashboard_state(state: State<'_, AppState>) -> Result<DashboardState, String> {
@@ -88,4 +95,11 @@ pub fn toggle_provider(
         .toggle_provider(provider)
         .map_err(|error| error.to_string())?;
     state.build_dashboard_state().map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn import_kimi_browser_cookie() -> Result<ImportKimiCookieResult, String> {
+    let (token, source) =
+        crate::browser_cookies::find_kimi_auth_cookie().map_err(|e| e.to_string())?;
+    Ok(ImportKimiCookieResult { token, source })
 }

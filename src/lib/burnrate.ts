@@ -118,3 +118,10 @@ export async function toggleProvider(
 ): Promise<DashboardState> {
   return invoke("toggle_provider", { provider });
 }
+
+export async function importKimiBrowserCookie(): Promise<{
+  token: string;
+  source: string;
+}> {
+  return invoke("import_kimi_browser_cookie");
+}

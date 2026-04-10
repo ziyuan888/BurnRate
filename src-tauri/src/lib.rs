@@ -1,4 +1,5 @@
 mod app_state;
+mod browser_cookies;
 mod commands;
 mod models;
 pub mod providers;
@@ -33,6 +34,7 @@ pub fn run() {
             commands::set_launch_at_login,
             commands::quit_app,
             commands::toggle_provider,
+            commands::import_kimi_browser_cookie,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

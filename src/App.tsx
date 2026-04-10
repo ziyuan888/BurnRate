@@ -7,6 +7,7 @@ import {
   type DashboardState,
   type ProviderKind,
   type ProviderSettingsView,
+  importKimiBrowserCookie,
   quitApp,
 } from "./lib/burnrate";
 import { buildStatusSummary } from "./features/dashboard/summary";
@@ -545,10 +546,23 @@ function ProviderSettingsCard({
   onToggle: () => void;
 }) {
   const [apiKey, setApiKey] = useState("");
+  const [importNote, setImportNote] = useState<string | null>(null);
 
   useEffect(() => {
     setApiKey("");
+    setImportNote(null);
   }, [provider]);
+
+  const handleImportCookie = async () => {
+    setImportNote(null);
+    try {
+      const result = await importKimiBrowserCookie();
+      setApiKey(result.token);
+      setImportNote(`已从 ${result.source} 导入会话`);
+    } catch (error) {
+      setImportNote(error instanceof Error ? error.message : String(error));
+    }
+  };
 
   return (
     <div className="provider-settings-card">
@@ -577,10 +591,37 @@ function ProviderSettingsCard({
           <input
             value={apiKey}
             type="password"
-            onChange={(event) => setApiKey(event.currentTarget.value)}
+            onChange={(event) => {
+              setApiKey(event.currentTarget.value);
+              if (importNote) setImportNote(null);
+            }}
             placeholder={provider.hasApiKey ? "已保存密钥，留空则保持不变" : provider.secretPlaceholder}
           />
         </label>
+        {provider.provider === "kimi" && (
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "4px" }}>
+            <button
+              className="ghost-button"
+              type="button"
+              onClick={() => void handleImportCookie()}
+              disabled={!provider.enabled}
+              title="自动读取 Chrome / Edge / Brave / Arc 中的 Kimi 登录会话"
+            >
+              从浏览器自动导入
+            </button>
+            {importNote && (
+              <span
+                className="inline-note"
+                style={{
+                  color: importNote.startsWith("已从") ? "rgba(255,255,255,0.7)" : "rgba(255,100,100,0.9)",
+                  fontSize: "12px",
+                }}
+              >
+                {importNote}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       <button
@@ -594,6 +635,7 @@ function ProviderSettingsCard({
             apiKey,
           });
           setApiKey("");
+          setImportNote(null);
         }}
       >
         保存 {provider.providerLabel}

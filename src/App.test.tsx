@@ -140,11 +140,11 @@ describe("App settings access", () => {
   it("shows the next reset time on the provider card", () => {
     storeState.dashboard.providers = [
       {
-        provider: "zhipu",
-        providerLabel: "智谱清言",
+        provider: "minimax",
+        providerLabel: "MiniMax",
         isEnabled: true,
         status: "healthy",
-        headlineTitle: "5 小时窗口",
+        headlineTitle: "当前用量",
         headlineValue: "37%",
         resetAtLabel: "今天 15:30",
         fetchedAt: "2026-04-03T14:00:00.000Z",

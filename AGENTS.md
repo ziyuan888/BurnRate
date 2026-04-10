@@ -33,6 +33,7 @@ BurnRate/
 | State management | `src/store/useBurnRateStore.ts` | Zustand store |
 | Rust orchestration | `src-tauri/src/app_state.rs` | Core refresh loop, 705 lines |
 | Provider APIs | `src-tauri/src/providers/` | zhipu.rs, minimax.rs, kimi.rs |
+| Browser cookie import | `src-tauri/src/browser_cookies.rs` | Chromium-family cookie scanner for Kimi |
 | SQLite storage | `src-tauri/src/storage/db.rs` | Schema + CRUD |
 
 ## Commands

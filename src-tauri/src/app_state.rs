@@ -243,9 +243,13 @@ impl AppState {
             });
         }
 
-        let api_key = self
-            .load_api_key(config.provider)
-            .map_err(|_| anyhow::anyhow!("未配置 API Key"))?;
+        let api_key = match config.provider {
+            ProviderKind::Kimi => self
+                .load_api_key(config.provider)
+                .or_else(|_| std::env::var("KIMI_AUTH_TOKEN").map_err(|e| anyhow::anyhow!(e))),
+            _ => self.load_api_key(config.provider),
+        }
+        .map_err(|_| anyhow::anyhow!("未配置 API Key"))?;
 
         match config.provider {
             ProviderKind::Zhipu => {
@@ -588,6 +592,11 @@ fn resolve_reset_at_unix_ms(
 }
 
 fn infer_cycle_duration_ms(provider: ProviderKind, reset_history: &[i64]) -> Option<i64> {
+    // Kimi uses sliding 5-hour windows; never infer a fixed cycle from history.
+    if matches!(provider, ProviderKind::Kimi) {
+        return None;
+    }
+
     for window in reset_history.windows(2) {
         let newer = window[0];
         let older = window[1];
@@ -762,5 +771,25 @@ mod tests {
         );
 
         assert_eq!(summary.as_deref(), Some("7 天 最新 72% / 峰值 83% / 均值 51%"));
+    }
+
+    #[test]
+    fn does_not_infer_fixed_cycle_for_kimi_sliding_window() {
+        let now = datetime!(2026-04-04 20:10:00 +8).unix_timestamp() * 1000;
+        // History contains ~5h intervals which should NOT be treated as a fixed cycle for Kimi
+        let history = [
+            datetime!(2026-04-04 15:00:00 +8).unix_timestamp() * 1000,
+            datetime!(2026-04-04 10:00:00 +8).unix_timestamp() * 1000,
+        ];
+
+        let derived = resolve_reset_at_unix_ms(
+            ProviderKind::Kimi,
+            None,
+            &history,
+            now,
+        );
+
+        // Because Kimi uses sliding windows, we must not infer a fixed 5h cycle.
+        assert_eq!(derived, None);
     }
 }
