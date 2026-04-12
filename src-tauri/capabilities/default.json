@@ -5,6 +5,7 @@
   "windows": ["popover", "settings"],
   "permissions": [
     "core:default",
+    "core:window:allow-hide",
     "opener:default",
     "autostart:allow-enable",
     "autostart:allow-disable",
