@@ -1,6 +1,6 @@
 # BurnRate
 
-![Version](https://img.shields.io/badge/version-0.2.6-blue?logo=semver)
+![Version](https://img.shields.io/badge/version-0.2.7-blue?logo=semver)
 ![macOS](https://img.shields.io/badge/platform-macOS-111827?logo=apple&logoColor=white)
 ![Tauri 2](https://img.shields.io/badge/Tauri-2-24C8DB?logo=tauri&logoColor=white)
 ![React 19](https://img.shields.io/badge/React-19-149ECA?logo=react&logoColor=white)
@@ -78,7 +78,7 @@ npm run tauri build -- --debug
 
 ```text
 src-tauri/target/debug/burn-rate
-src-tauri/target/debug/bundle/dmg/BurnRate_0.2.6_aarch64.dmg
+src-tauri/target/debug/bundle/dmg/BurnRate_0.2.7_aarch64.dmg
 ```
 
 说明：DMG 打包流程会清理中间生成的 `bundle/macos/BurnRate.app`，因此最终保留下来的可分发调试产物通常是上面的 `.dmg`。
